@@ -1,0 +1,57 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="MIT"
+issueTrackerURL="https://github.com/kvizoid/create-wire-rider/issues"
+
+[[mods]]
+modId="create_wire_rider"
+version="1.0.1"
+displayName="Create: Wire Rider"
+updateJSONURL="https://raw.githubusercontent.com/kvizoid/create-wire-rider/main/updates.json"
+displayURL="https://github.com/kvizoid/create-wire-rider"
+logoFile="logo.png"
+credits="George_VI (Electro Energetics), Patryk3211 (Power Grid), Simibubi (Create)"
+authors="white, drnight"
+description='''
+Zipline on power lines using any Create wrench.
+Works with both Create: Electro Energetics and Create: Power Grid cables.
+Bare wires carrying live voltage require quick reactions (Space / LMB / RMB) to avoid taking electric damage, while A/D switch between parallel lines.
+'''
+
+[[dependencies.create_wire_rider]]
+    modId="neoforge"
+    type="required"
+    versionRange="[21.1.0,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.create_wire_rider]]
+    modId="minecraft"
+    type="required"
+    versionRange="[1.21.1,1.22)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.create_wire_rider]]
+    modId="create"
+    type="required"
+    versionRange="[6.0.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.create_wire_rider]]
+    modId="electroenergetics"
+    type="optional"
+    versionRange="[1.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.create_wire_rider]]
+    modId="powergrid"
+    type="optional"
+    versionRange="[0.6.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[mixins]]
+    config="create_wire_rider.mixins.json"

@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "package": "com.white.wirerider.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "minVersion": "0.8",
+  "plugin": "com.white.wirerider.mixin.WireRiderMixinPlugin",
+  "refmap": "create_wire_rider.refmap.json",
+  "mixins": [
+    "AttachmentRemovalMixin"
+  ],
+  "client": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

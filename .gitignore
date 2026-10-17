@@ -1,0 +1,12 @@
+.gradle/
+build/
+bin/
+out/
+.idea/
+*.ipr
+*.iws
+*.iml
+run/
+gradle/daemon/
+*.log
+javac_args.txt

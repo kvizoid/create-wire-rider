@@ -1,0 +1,6 @@
+{
+  "itemGroup.create_wire_rider": "Create: Wire Rider",
+  "message.create_wire_rider.grounded": "§a⚡ GROUNDED! (+15% Speed Burst) ⚡",
+  "message.create_wire_rider.shocked": "§c⚡ ELECTRIC SHOCK! Speed penalty! ⚡",
+  "message.create_wire_rider.knocked_off": "§4⚡ KNOCKED OFF WIRE BY VOLTAGE! ⚡"
+}
