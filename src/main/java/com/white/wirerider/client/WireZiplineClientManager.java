@@ -273,7 +273,7 @@ public class WireZiplineClientManager {
             return;
         }
 
-        float chainYOffset = 0.5F * player.getScale();
+        float chainYOffset = 0.66F * player.getScale();
         Vec3 handsPos = player.position().add(0.0, player.getBoundingBox().getYsize() + chainYOffset, 0.0);
 
         ClosestQuery query = getClosestPointOnWire(wirePoints, handsPos);
@@ -550,7 +550,7 @@ public class WireZiplineClientManager {
         currentSession = next;
         wirePoints = next.getPoints();
         if (mc.player != null && wirePoints != null && wirePoints.size() >= 2) {
-            float chainYOffset = 0.5F * mc.player.getScale();
+            float chainYOffset = 0.66F * mc.player.getScale();
             Vec3 handsPos = mc.player.position().add(0.0, mc.player.getBoundingBox().getYsize() + chainYOffset, 0.0);
             ClosestQuery q = getClosestPointOnWire(wirePoints, handsPos);
             currentNormal = q.normal();
@@ -566,7 +566,7 @@ public class WireZiplineClientManager {
         LocalPlayer player = mc.player;
         if (player == null || mc.level == null) return false;
 
-        float chainYOffset = 0.5F * player.getScale();
+        float chainYOffset = 0.66F * player.getScale();
         Vec3 handsPos = player.position().add(0.0, player.getBoundingBox().getYsize() + chainYOffset, 0.0);
         Vec3 vel = player.getDeltaMovement();
         Vec3 normal = currentNormal;
@@ -612,7 +612,7 @@ public class WireZiplineClientManager {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null) return;
 
-        float chainYOffset = 0.5F * mc.player.getScale();
+        float chainYOffset = 0.66F * mc.player.getScale();
         Vec3 handsPos = mc.player.position().add(0.0, mc.player.getBoundingBox().getYsize() + chainYOffset, 0.0);
         Vec3 camPos = mc.player.getEyePosition();
         Vec3 camLook = mc.player.getLookAngle();

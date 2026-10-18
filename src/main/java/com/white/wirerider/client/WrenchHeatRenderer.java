@@ -41,12 +41,19 @@ public class WrenchHeatRenderer {
 
         if (!inHand) return;
 
+        poseStack.pushPose();
+        poseStack.translate(0.5f, 0.5f, 0.5f);
+        poseStack.scale(1.003f, 1.003f, 1.003f);
+        poseStack.translate(-0.5f, -0.5f, -0.5f);
+
         VertexConsumer consumer = buffer.getBuffer(RenderType.entityTranslucentEmissive(TextureAtlas.LOCATION_BLOCKS));
 
         renderHeatedQuads(poseStack, consumer, model.getQuads(null, null, RANDOM), heat);
         for (Direction direction : Direction.values()) {
             renderHeatedQuads(poseStack, consumer, model.getQuads(null, direction, RANDOM), heat);
         }
+
+        poseStack.popPose();
     }
 
     private static void renderHeatedQuads(
@@ -76,35 +83,16 @@ public class WrenchHeatRenderer {
             float avgX = (x0 + x1 + x2 + x3) * 0.25f;
 
             float tipFactor = Math.max(avgY, (avgX + avgY) * 0.55f);
-            if (tipFactor < 0.40f) continue;
+            if (tipFactor < 0.32f) continue;
 
-            float t = Mth.clamp((tipFactor - 0.40f) / 0.50f, 0.0f, 1.0f);
+            float t = Mth.clamp((tipFactor - 0.32f) / 0.55f, 0.0f, 1.0f);
 
             float r = 1.0f;
-            float g = Mth.lerp(t, 0.16f, 0.85f);
-            float b = Mth.lerp(t, 0.02f, 0.22f);
-            float a = Mth.lerp(t, 0.35f, 0.92f) * heat;
+            float g = Mth.lerp(t, 0.28f, 0.88f);
+            float b = Mth.lerp(t, 0.04f, 0.30f);
+            float a = Mth.lerp(t, 0.40f, 0.90f) * heat;
 
-            Direction dir = quad.getDirection();
-            float nx = dir.getStepX() * 0.0006f;
-            float ny = dir.getStepY() * 0.0006f;
-            float nz = dir.getStepZ() * 0.0006f;
-
-            for (int i = 0; i < 4; i++) {
-                int offset = i * 8;
-                float vx = Float.intBitsToFloat(vertices[offset]) + nx;
-                float vy = Float.intBitsToFloat(vertices[offset + 1]) + ny;
-                float vz = Float.intBitsToFloat(vertices[offset + 2]) + nz;
-                float u = Float.intBitsToFloat(vertices[offset + 4]);
-                float v = Float.intBitsToFloat(vertices[offset + 5]);
-
-                consumer.addVertex(lastPose, vx, vy, vz)
-                    .setColor(r, g, b, a)
-                    .setUv(u, v)
-                    .setOverlay(OverlayTexture.NO_OVERLAY)
-                    .setLight(0x00F000F0)
-                    .setNormal(lastPose, dir.getStepX(), dir.getStepY(), dir.getStepZ());
-            }
+            consumer.putBulkData(lastPose, quad, r, g, b, a, 0x00F000F0, OverlayTexture.NO_OVERLAY);
         }
     }
 }
