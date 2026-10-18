@@ -81,13 +81,13 @@ public class WrenchHeatRenderer {
             float avgX = (x0 + x1 + x2 + x3) * 0.25f;
 
             float tipFactor = Math.max(avgY, (avgX + avgY) * 0.55f);
-            if (tipFactor < 0.68f) continue;
+            if (tipFactor < 0.48f) continue;
 
-            float t = Mth.clamp((tipFactor - 0.68f) / 0.24f, 0.0f, 1.0f);
+            float t = Mth.clamp((tipFactor - 0.48f) / 0.45f, 0.0f, 1.0f);
             float r = 1.0f;
-            float g = Mth.lerp(t, 0.15f, 0.70f);
+            float g = Mth.lerp(t, 0.15f, 0.75f);
             float b = Mth.lerp(t, 0.02f, 0.15f);
-            float a = Mth.lerp(t, 0.25f, 0.75f) * heat;
+            float a = Mth.lerp(t, 0.10f, 0.82f) * heat;
 
             consumer.putBulkData(lastPose, quad, r, g, b, a, 0x00F000F0, OverlayTexture.NO_OVERLAY);
         }
