@@ -91,7 +91,7 @@ public class CEEWireSession implements IRidableWireSession {
 
         for (Pair<InWorldNodeConnection, WireData> pair : WireRenderer.getAllConnections()) {
             InWorldNodeConnection other = pair.getFirst();
-            if (other == null || other.equals(connection)) continue;
+            if (other == null || other.equals(connection) || com.white.wirerider.client.WireZiplineClientManager.isLastExitedWire(other)) continue;
 
             Vec3 p1 = other.node1().getPosition(level);
             Vec3 p2 = other.node2().getPosition(level);
@@ -99,7 +99,7 @@ public class CEEWireSession implements IRidableWireSession {
 
             double d1 = p1.distanceToSqr(currentEndPos);
             double d2 = p2.distanceToSqr(currentEndPos);
-            if (d1 < 1.44 || d2 < 1.44) {
+            if (d1 < 10.0 || d2 < 10.0) {
                 Vec3 outDir = (d1 <= d2) ? p2.subtract(p1).normalize() : p1.subtract(p2).normalize();
                 double minDistSq = Math.min(d1, d2);
                 boolean exactNode = (currentEndNode != null) &&
@@ -109,16 +109,16 @@ public class CEEWireSession implements IRidableWireSession {
                 if (exactNode) {
                     score += 25.0;
                 } else {
-                    score -= minDistSq * 18.0;
+                    score -= minDistSq * 2.5;
                 }
 
                 if (unitTravel.lengthSqr() > 0) {
                     double forwardDot = outDir.dot(unitTravel);
-                    if (forwardDot < -0.35) {
-                        score += forwardDot * 10.0;
+                    if (forwardDot < -0.2) {
+                        score += forwardDot * 25.0;
                     } else {
                         double lateralDot = right.dot(outDir);
-                        score += forwardDot * 4.0;
+                        score += forwardDot * 15.0;
                         if (Math.abs(steerX) > 0.1) {
                             score += steerX * lateralDot * 8.0;
                         }

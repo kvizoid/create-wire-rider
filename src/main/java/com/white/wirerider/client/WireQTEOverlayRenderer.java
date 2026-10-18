@@ -81,13 +81,20 @@ public class WireQTEOverlayRenderer {
                 guiGraphics.fill(barX, barY, barX + fillW, barY + barH, barColor);
             }
 
+            guiGraphics.flush();
+            guiGraphics.pose().pushPose();
+            guiGraphics.pose().translate(0.0f, 0.0f, 150.0f);
+
             if (prompt == ElectricQTEController.QTEKey.LMB) {
                 renderMouseIcon(guiGraphics, x, y, true, isWarning);
             } else if (prompt == ElectricQTEController.QTEKey.RMB) {
                 renderMouseIcon(guiGraphics, x, y, false, isWarning);
-            } else if (prompt == ElectricQTEController.QTEKey.SPACE) {
+            } else {
                 renderSpaceIcon(guiGraphics, x, y, isWarning);
             }
+
+            guiGraphics.flush();
+            guiGraphics.pose().popPose();
         }
     }
 

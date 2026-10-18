@@ -34,44 +34,26 @@ public class WrenchHeatRenderer {
 
         if (!WireZiplineClientManager.isWrench(stack)) return;
 
-        boolean isFirstPerson = displayContext == ItemDisplayContext.FIRST_PERSON_RIGHT_HAND
-            || displayContext == ItemDisplayContext.FIRST_PERSON_LEFT_HAND;
-        boolean isThirdPerson = displayContext == ItemDisplayContext.THIRD_PERSON_RIGHT_HAND
+        boolean inHand = displayContext == ItemDisplayContext.FIRST_PERSON_RIGHT_HAND
+            || displayContext == ItemDisplayContext.FIRST_PERSON_LEFT_HAND
+            || displayContext == ItemDisplayContext.THIRD_PERSON_RIGHT_HAND
             || displayContext == ItemDisplayContext.THIRD_PERSON_LEFT_HAND;
 
-        if (!isFirstPerson && !isThirdPerson) return;
-
-        float primaryScale = isFirstPerson ? 1.018f : 1.055f;
-
-        poseStack.pushPose();
-        poseStack.scale(primaryScale, primaryScale, primaryScale);
+        if (!inHand) return;
 
         VertexConsumer consumer = buffer.getBuffer(RenderType.entityTranslucentEmissive(TextureAtlas.LOCATION_BLOCKS));
 
-        renderHeatedQuads(poseStack, consumer, model.getQuads(null, null, RANDOM), heat, 1.0f);
+        renderHeatedQuads(poseStack, consumer, model.getQuads(null, null, RANDOM), heat);
         for (Direction direction : Direction.values()) {
-            renderHeatedQuads(poseStack, consumer, model.getQuads(null, direction, RANDOM), heat, 1.0f);
+            renderHeatedQuads(poseStack, consumer, model.getQuads(null, direction, RANDOM), heat);
         }
-
-        if (heat > 0.35f) {
-            float bloomScale = isFirstPerson ? 1.015f : 1.035f;
-            poseStack.scale(bloomScale, bloomScale, bloomScale);
-            float bloomIntensity = (heat - 0.35f) * 0.45f;
-            renderHeatedQuads(poseStack, consumer, model.getQuads(null, null, RANDOM), heat, bloomIntensity);
-            for (Direction direction : Direction.values()) {
-                renderHeatedQuads(poseStack, consumer, model.getQuads(null, direction, RANDOM), heat, bloomIntensity);
-            }
-        }
-
-        poseStack.popPose();
     }
 
     private static void renderHeatedQuads(
         PoseStack poseStack,
         VertexConsumer consumer,
         List<BakedQuad> quads,
-        float heat,
-        float intensityMultiplier
+        float heat
     ) {
         if (quads == null || quads.isEmpty()) return;
 
@@ -94,18 +76,35 @@ public class WrenchHeatRenderer {
             float avgX = (x0 + x1 + x2 + x3) * 0.25f;
 
             float tipFactor = Math.max(avgY, (avgX + avgY) * 0.55f);
-            if (tipFactor < 0.35f) continue;
+            if (tipFactor < 0.40f) continue;
 
-            float t = Mth.clamp((tipFactor - 0.35f) / 0.55f, 0.0f, 1.0f);
+            float t = Mth.clamp((tipFactor - 0.40f) / 0.50f, 0.0f, 1.0f);
 
             float r = 1.0f;
-            float g = Mth.lerp(t * t, 0.18f, 0.88f);
-            float b = Mth.lerp(t * t, 0.01f, 0.28f);
+            float g = Mth.lerp(t, 0.16f, 0.85f);
+            float b = Mth.lerp(t, 0.02f, 0.22f);
+            float a = Mth.lerp(t, 0.35f, 0.92f) * heat;
 
-            float baseAlpha = Mth.lerp(t, 0.30f, 0.95f) * heat * intensityMultiplier;
-            float a = Mth.clamp(baseAlpha, 0.0f, 1.0f);
+            Direction dir = quad.getDirection();
+            float nx = dir.getStepX() * 0.0006f;
+            float ny = dir.getStepY() * 0.0006f;
+            float nz = dir.getStepZ() * 0.0006f;
 
-            consumer.putBulkData(lastPose, quad, r, g, b, a, 0x00F000F0, OverlayTexture.NO_OVERLAY);
+            for (int i = 0; i < 4; i++) {
+                int offset = i * 8;
+                float vx = Float.intBitsToFloat(vertices[offset]) + nx;
+                float vy = Float.intBitsToFloat(vertices[offset + 1]) + ny;
+                float vz = Float.intBitsToFloat(vertices[offset + 2]) + nz;
+                float u = Float.intBitsToFloat(vertices[offset + 4]);
+                float v = Float.intBitsToFloat(vertices[offset + 5]);
+
+                consumer.addVertex(lastPose, vx, vy, vz)
+                    .setColor(r, g, b, a)
+                    .setUv(u, v)
+                    .setOverlay(OverlayTexture.NO_OVERLAY)
+                    .setLight(0x00F000F0)
+                    .setNormal(lastPose, dir.getStepX(), dir.getStepY(), dir.getStepZ());
+            }
         }
     }
 }

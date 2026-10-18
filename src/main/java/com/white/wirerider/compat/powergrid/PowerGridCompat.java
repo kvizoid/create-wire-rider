@@ -166,16 +166,17 @@ public class PowerGridCompat {
 
             double d1 = p1.distanceToSqr(currentEndPos);
             double d2 = p2.distanceToSqr(currentEndPos);
-            if (d1 < 1.44 || d2 < 1.44) {
+            if (d1 < 10.0 || d2 < 10.0) {
                 Vec3 outDir = (d1 <= d2) ? p2.subtract(p1).normalize() : p1.subtract(p2).normalize();
-                double score = 1.0;
+                double minDistSq = Math.min(d1, d2);
+                double score = 10.0 - minDistSq * 2.0;
                 if (unitTravel.lengthSqr() > 0) {
                     double forwardDot = outDir.dot(unitTravel);
-                    if (forwardDot < -0.35) {
-                        score = forwardDot * 5.0;
+                    if (forwardDot < -0.2) {
+                        score += forwardDot * 25.0;
                     } else {
                         double lateralDot = right.dot(outDir);
-                        score = forwardDot * 3.0 + (steerX * lateralDot * 2.5);
+                        score += forwardDot * 15.0 + (steerX * lateralDot * 5.0);
                     }
                 }
                 if (score > bestScore) {

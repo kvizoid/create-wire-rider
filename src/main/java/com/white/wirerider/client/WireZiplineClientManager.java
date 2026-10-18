@@ -49,6 +49,10 @@ public class WireZiplineClientManager {
         return wrenchHeat;
     }
 
+    public static boolean isLastExitedWire(Object identity) {
+        return lastWireCooldown > 0 && lastExitedWire != null && lastExitedWire.equals(identity);
+    }
+
     public static boolean isRiding() {
         return currentSession != null;
     }
@@ -538,8 +542,11 @@ public class WireZiplineClientManager {
         Minecraft mc = Minecraft.getInstance();
         double speed = 0.0;
         if (mc.player != null && currentNormal.lengthSqr() > 0.01) {
-            speed = mc.player.getDeltaMovement().dot(currentNormal);
+            speed = Math.abs(mc.player.getDeltaMovement().dot(currentNormal));
         }
+        lastExitedWire = currentSession != null ? currentSession.getWireIdentity() : null;
+        lastWireCooldown = 10;
+
         currentSession = next;
         wirePoints = next.getPoints();
         if (mc.player != null && wirePoints != null && wirePoints.size() >= 2) {
@@ -547,9 +554,8 @@ public class WireZiplineClientManager {
             Vec3 handsPos = mc.player.position().add(0.0, mc.player.getBoundingBox().getYsize() + chainYOffset, 0.0);
             ClosestQuery q = getClosestPointOnWire(wirePoints, handsPos);
             currentNormal = q.normal();
-            if (Math.abs(speed) > 0.05) {
-                mc.player.setDeltaMovement(currentNormal.scale(speed));
-            }
+            double forwardSpeed = Math.max(0.35, speed);
+            mc.player.setDeltaMovement(currentNormal.scale(forwardSpeed));
         }
         currentSession.sendStartPacket();
     }
