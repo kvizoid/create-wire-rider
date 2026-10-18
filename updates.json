@@ -1,11 +1,12 @@
 {
   "homepage": "https://modrinth.com/mod/create-wire-rider",
   "promoted": {
-    "1.21.1-latest": "1.0.1",
-    "1.21.1-recommended": "1.0.1"
+    "1.21.1-latest": "1.0.2",
+    "1.21.1-recommended": "1.0.2"
   },
   "1.21.1": {
     "1.0.0": "Initial release with Create: Electro Energetics support",
-    "1.0.1": "Added Create: Power Grid wire support, fixed QTE bypass exploit, added remount cooldown"
+    "1.0.1": "Added Create: Power Grid wire support, fixed QTE bypass exploit, added remount cooldown",
+    "1.0.2": "Added dynamic wrench heat mechanic with visual glowing tip, environmental rain and water cooling"
   }
 }

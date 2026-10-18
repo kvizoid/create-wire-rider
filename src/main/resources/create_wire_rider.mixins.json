@@ -8,7 +8,9 @@
   "mixins": [
     "AttachmentRemovalMixin"
   ],
-  "client": [],
+  "client": [
+    "ItemRendererMixin"
+  ],
   "injectors": {
     "defaultRequire": 1
   }

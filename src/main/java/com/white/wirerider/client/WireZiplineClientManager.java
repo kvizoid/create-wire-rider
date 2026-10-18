@@ -42,6 +42,12 @@ public class WireZiplineClientManager {
     private static int unenergizedGraceTicks = 0;
     private static ElectricQTEController qteController = null;
     private static Vec3 currentNormal = Vec3.ZERO;
+    private static float wrenchHeat = 0.0f;
+    private static int continuousRideTicks = 0;
+
+    public static float getWrenchHeat() {
+        return wrenchHeat;
+    }
 
     public static boolean isRiding() {
         return currentSession != null;
@@ -232,6 +238,20 @@ public class WireZiplineClientManager {
         } else {
             groundedTimer = 0;
 
+            if (wrenchHeat > 0.0f) {
+                boolean inWaterOrRain = mc.player.isInWaterOrRain() || mc.level.isRainingAt(mc.player.blockPosition());
+                if (inWaterOrRain) {
+                    if (wrenchHeat > 0.12f && mc.player.tickCount % 4 == 0) {
+                        mc.player.playSound(SoundEvents.FIRE_EXTINGUISH, 0.25f, 1.5f + (float) Math.random() * 0.3f);
+                        mc.level.addParticle(ParticleTypes.SMOKE, mc.player.getX(), mc.player.getY() + 1.2, mc.player.getZ(), 0.0, 0.03, 0.0);
+                    }
+                    wrenchHeat = Math.max(0.0f, wrenchHeat - 0.030f);
+                } else {
+                    wrenchHeat = Math.max(0.0f, wrenchHeat - 0.0083f);
+                }
+                continuousRideTicks = Math.max(0, continuousRideTicks - 4);
+            }
+
             if (remountCooldown == 0 && mc.options.keyUse.isDown() && !mc.player.isShiftKeyDown() && isWrench(mc.player.getMainHandItem())) {
                 holdUseSearch();
             }
@@ -351,6 +371,50 @@ public class WireZiplineClientManager {
 
         if (++tickCounter % 10 == 0) {
             currentSession.sendHeartbeatPacket();
+        }
+
+        boolean inWaterOrRain = player.isInWaterOrRain() || mc.level.isRainingAt(player.blockPosition());
+        if (currentSpeed > 0.15) {
+            continuousRideTicks++;
+            if (continuousRideTicks > 900) {
+                wrenchHeat += 0.0028f;
+                if (wrenchHeat > 1.0f) {
+                    wrenchHeat = 1.0f;
+                }
+            }
+        } else {
+            continuousRideTicks = Math.max(0, continuousRideTicks - 4);
+            wrenchHeat = Math.max(0.0f, wrenchHeat - 0.0083f);
+        }
+
+        if (inWaterOrRain) {
+            continuousRideTicks = Math.max(0, continuousRideTicks - 8);
+            if (wrenchHeat > 0.0f) {
+                if (wrenchHeat > 0.12f && tickCounter % 4 == 0) {
+                    player.playSound(SoundEvents.FIRE_EXTINGUISH, 0.25f, 1.5f + (float) Math.random() * 0.3f);
+                    mc.level.addParticle(ParticleTypes.SMOKE, target.x, target.y - 0.05, target.z,
+                        (Math.random() - 0.5) * 0.05, 0.04, (Math.random() - 0.5) * 0.05);
+                }
+                wrenchHeat = Math.max(0.0f, wrenchHeat - 0.030f);
+            }
+        } else if (wrenchHeat >= 0.85f && wrenchHeat < 1.0f) {
+            if (tickCounter % 12 == 0) {
+                mc.level.addParticle(ParticleTypes.SMOKE, target.x, target.y - 0.02, target.z, 0.0, 0.02, 0.0);
+            }
+            if (tickCounter % 20 == 0) {
+                player.playSound(SoundEvents.FIRE_EXTINGUISH, 0.12f, 1.8f);
+            }
+        }
+
+        if (wrenchHeat >= 1.0f) {
+            player.playSound(SoundEvents.FIRE_EXTINGUISH, 0.7f, 0.9f);
+            for (int i = 0; i < 4; i++) {
+                mc.level.addParticle(ParticleTypes.CAMPFIRE_COSY_SMOKE, target.x, target.y, target.z,
+                    (Math.random() - 0.5) * 0.08, 0.06, (Math.random() - 0.5) * 0.08);
+            }
+            player.hurtTime = 10;
+            disembark(false);
+            return;
         }
 
         if (isEnergized) {

@@ -5,7 +5,7 @@ issueTrackerURL="https://github.com/kvizoid/create-wire-rider/issues"
 
 [[mods]]
 modId="create_wire_rider"
-version="1.0.1"
+version="1.0.2"
 displayName="Create: Wire Rider"
 updateJSONURL="https://raw.githubusercontent.com/kvizoid/create-wire-rider/main/updates.json"
 displayURL="https://github.com/kvizoid/create-wire-rider"
