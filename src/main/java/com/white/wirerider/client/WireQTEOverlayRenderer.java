@@ -81,13 +81,61 @@ public class WireQTEOverlayRenderer {
                 guiGraphics.fill(barX, barY, barX + fillW, barY + barH, barColor);
             }
 
-            String label = (prompt == ElectricQTEController.QTEKey.SPACE) ? "SPC" : prompt.displayName;
-            int textWidth = font.width(label);
-            int textX = x + (size - textWidth) / 2;
-            int textY = y + (size - 8) / 2;
-
-            int textColor = isWarning ? 0xFFFF4444 : 0xFFFFFFFF;
-            guiGraphics.drawString(font, label, textX, textY, textColor, true);
+            if (prompt == ElectricQTEController.QTEKey.LMB) {
+                renderMouseIcon(guiGraphics, x, y, true, isWarning);
+            } else if (prompt == ElectricQTEController.QTEKey.RMB) {
+                renderMouseIcon(guiGraphics, x, y, false, isWarning);
+            } else if (prompt == ElectricQTEController.QTEKey.SPACE) {
+                renderSpaceIcon(guiGraphics, x, y, isWarning);
+            }
         }
+    }
+
+    private static void renderMouseIcon(GuiGraphics g, int x, int y, boolean isLeft, boolean isWarning) {
+        int mx = x + 6;
+        int my = y + 4;
+        int activeColor = isWarning ? 0xFFFF3B30 : 0xFF00E5FF;
+        int inactiveColor = 0xFF353942;
+        int bodyColor = 0xFF23262D;
+        int borderColor = 0xFF101216;
+
+        g.fill(mx + 1, my, mx + 9, my + 14, borderColor);
+        g.fill(mx, my + 1, mx + 10, my + 13, borderColor);
+
+        g.fill(mx + 1, my + 6, mx + 9, my + 13, bodyColor);
+
+        g.fill(mx + 4, my + 1, mx + 5, my + 6, borderColor);
+        g.fill(mx + 1, my + 6, mx + 9, my + 7, borderColor);
+
+        int leftCol = isLeft ? activeColor : inactiveColor;
+        g.fill(mx + 1, my + 1, mx + 4, my + 6, leftCol);
+
+        int rightCol = !isLeft ? activeColor : inactiveColor;
+        g.fill(mx + 5, my + 1, mx + 9, my + 6, rightCol);
+
+        if (isLeft) {
+            g.fill(mx + 2, my + 2, mx + 4, my + 3, 0xFFFFFFFF);
+        } else {
+            g.fill(mx + 6, my + 2, mx + 8, my + 3, 0xFFFFFFFF);
+        }
+    }
+
+    private static void renderSpaceIcon(GuiGraphics g, int x, int y, boolean isWarning) {
+        int sx = x + 3;
+        int sy = y + 6;
+        int activeColor = isWarning ? 0xFFFF3B30 : 0xFF00E5FF;
+        int borderColor = 0xFF101216;
+        int keyColor = 0xFF23262D;
+        int bevelColor = 0xFF3E434F;
+
+        g.fill(sx, sy, sx + 16, sy + 10, borderColor);
+        g.fill(sx + 1, sy + 1, sx + 15, sy + 9, keyColor);
+        g.fill(sx + 1, sy + 1, sx + 15, sy + 2, bevelColor);
+
+        g.fill(sx + 3, sy + 6, sx + 13, sy + 7, activeColor);
+        g.fill(sx + 3, sy + 4, sx + 4, sy + 6, activeColor);
+        g.fill(sx + 12, sy + 4, sx + 13, sy + 6, activeColor);
+
+        g.fill(sx + 7, sy + 4, sx + 9, sy + 5, activeColor);
     }
 }
