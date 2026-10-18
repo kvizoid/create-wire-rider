@@ -44,6 +44,27 @@ public class PowerGridCompat {
             if (player.isShiftKeyDown()) return;
 
             ItemStack stack = event.getItemStack();
+            if (com.simibubi.create.AllTags.AllItemTags.TOOLBOXES.matches(stack)) {
+                if (!event.getLevel().isClientSide()) {
+                    List<Vec3> points = PowerGridWireSession.calculatePoints(wire);
+                    if (points != null && points.size() >= 2) {
+                        ItemStack toSpawn = stack.copyWithCount(1);
+                        if (!player.getAbilities().instabuild) {
+                            stack.shrink(1);
+                        }
+                        Vec3 clickPos = player.position().add(0, player.getEyeHeight(), 0);
+                        com.white.wirerider.content.toolbox.ZiplineToolboxEntity entity =
+                            new com.white.wirerider.content.toolbox.ZiplineToolboxEntity(event.getLevel(), points, toSpawn, clickPos, player.getLookAngle());
+                        event.getLevel().addFreshEntity(entity);
+                        event.getLevel().playSound(null, entity.getX(), entity.getY(), entity.getZ(), SoundEvents.CHAIN_PLACE, SoundSource.PLAYERS, 1.0F, 1.2F);
+                    }
+                }
+                player.swing(event.getHand());
+                event.setCanceled(true);
+                event.setCancellationResult(InteractionResult.SUCCESS);
+                return;
+            }
+
             if (!WireZiplineClientManager.isWrench(stack)) return;
 
             if (WireZiplineClientManager.isRiding()) {
@@ -52,7 +73,7 @@ public class PowerGridCompat {
                 return;
             }
 
-            if (event.getLevel().isClientSide() && event.getHand() == InteractionHand.MAIN_HAND) {
+            if (event.getLevel().isClientSide()) {
                 PowerGridWireSession session = new PowerGridWireSession(wire, event.getLevel(), player.position());
                 if (session.isValid()) {
                     WireZiplineClientManager.embark(session);
@@ -265,6 +286,34 @@ public class PowerGridCompat {
             if (score > bestScore) {
                 bestScore = score;
                 best = new PowerGridWireSession(wire, level, pt);
+            }
+        }
+        return best;
+    }
+
+    public static IRidableWireSession findClosestWire(Vec3 handsPos, double maxDistSq, Level level) {
+        if (level == null || handsPos == null) return null;
+        AABB aabb = new AABB(
+            handsPos.x - 4.0, handsPos.y - 4.0, handsPos.z - 4.0,
+            handsPos.x + 4.0, handsPos.y + 4.0, handsPos.z + 4.0
+        );
+        List<HangingWireEntity> wires = level.getEntitiesOfClass(
+            HangingWireEntity.class, aabb,
+            e -> e.isAlive() && !e.isRemoved()
+        );
+
+        IRidableWireSession best = null;
+        double bestDistSq = maxDistSq;
+
+        for (HangingWireEntity wire : wires) {
+            List<Vec3> points = PowerGridWireSession.calculatePoints(wire);
+            if (points == null || points.size() < 2) continue;
+
+            var query = WireZiplineClientManager.getClosestPointOnWire(points, handsPos);
+            double distSq = query.position().distanceToSqr(handsPos);
+            if (distSq < bestDistSq) {
+                bestDistSq = distSq;
+                best = new PowerGridWireSession(wire, level, query.position());
             }
         }
         return best;

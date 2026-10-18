@@ -24,10 +24,22 @@ public class WireRiderClientEvents {
     }
 
     @SubscribeEvent
+    public static void onLoggingOut(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
+        if (WireZiplineClientManager.isRiding()) {
+            WireZiplineClientManager.saveResumeOnLogout();
+        }
+    }
+
+    @SubscribeEvent
+    public static void onLoggingIn(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingIn event) {
+        WireZiplineClientManager.onLogin();
+    }
+
+    @SubscribeEvent
     public static void onKeyInput(InputEvent.Key event) {
         if (!WireZiplineClientManager.isRiding()) return;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null) return;
+        if (mc.player == null || mc.screen != null) return;
 
         if (event.getAction() == GLFW.GLFW_PRESS) {
             ElectricQTEController qte = WireZiplineClientManager.getQteController();
@@ -35,7 +47,7 @@ public class WireRiderClientEvents {
 
             if (event.getKey() == mc.options.keyShift.getKey().getValue()) {
                 if (qteActive) {
-                    WireZiplineClientManager.handleQTEResult(-2);
+                    WireZiplineClientManager.handleQTEResult(qte.fail());
                 } else {
                     WireZiplineClientManager.disembark(false);
                 }
@@ -69,6 +81,8 @@ public class WireRiderClientEvents {
     @SubscribeEvent
     public static void onMouseButton(InputEvent.MouseButton.Pre event) {
         if (!WireZiplineClientManager.isRiding()) return;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen != null) return;
         if (event.getAction() != GLFW.GLFW_PRESS) return;
 
         ElectricQTEController qte = WireZiplineClientManager.getQteController();

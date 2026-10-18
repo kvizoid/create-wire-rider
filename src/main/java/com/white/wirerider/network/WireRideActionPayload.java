@@ -37,6 +37,9 @@ public record WireRideActionPayload(int action, byte wireType, CompoundTag extra
     public static final int ACTION_HEARTBEAT = 1;
     public static final int ACTION_STOP = 2;
     public static final int ACTION_SHOCK = 3;
+    public static final int ACTION_LAUNCH_TOOLBOX = 4;
+    public static final int ACTION_ARRESTOR_DISCHARGE = 5;
+    public static final int ACTION_OVERHEAT_BURN = 6;
 
     public static WireRideActionPayload stop() {
         return new WireRideActionPayload(ACTION_STOP, (byte) 0, new CompoundTag());
@@ -53,6 +56,8 @@ public record WireRideActionPayload(int action, byte wireType, CompoundTag extra
                 switch (payload.action()) {
                     case ACTION_START, ACTION_HEARTBEAT -> {
                         sp.fallDistance = 0.0f;
+                        sp.getPersistentData().putBoolean("WireRiderActive", true);
+                        sp.getPersistentData().remove("WireRiderLoginGrace");
                         ServerChainConveyorHandler.handleTTLPacket(sp);
 
                         if (payload.wireType() == IRidableWireSession.TYPE_CEE && ModList.get().isLoaded("electroenergetics")) {
@@ -63,6 +68,8 @@ public record WireRideActionPayload(int action, byte wireType, CompoundTag extra
                     }
                     case ACTION_STOP -> {
                         sp.fallDistance = 0.0f;
+                        sp.getPersistentData().remove("WireRiderActive");
+                        sp.getPersistentData().remove("WireRiderLoginGrace");
                         ServerChainConveyorHandler.handleStopRidingPacket(sp);
                     }
                     case ACTION_SHOCK -> {
@@ -71,6 +78,18 @@ public record WireRideActionPayload(int action, byte wireType, CompoundTag extra
                         } else if (payload.wireType() == IRidableWireSession.TYPE_POWERGRID && ModList.get().isLoaded("powergrid")) {
                             PowerGridCompat.handleServerShock(sp, payload.extraData());
                         }
+                    }
+                    case ACTION_LAUNCH_TOOLBOX -> {
+                        if (payload.wireType() == IRidableWireSession.TYPE_CEE && ModList.get().isLoaded("electroenergetics")) {
+                            CEECompat.handleToolboxLaunch(sp, payload.extraData());
+                        }
+                    }
+                    case ACTION_ARRESTOR_DISCHARGE -> {
+                        com.white.wirerider.content.item.SparkArrestorHandler.handleServerDischarge(sp);
+                    }
+                    case ACTION_OVERHEAT_BURN -> {
+                        sp.setRemainingFireTicks(Math.max(sp.getRemainingFireTicks(), 60));
+                        sp.hurt(sp.damageSources().onFire(), 2.0F);
                     }
                 }
             }

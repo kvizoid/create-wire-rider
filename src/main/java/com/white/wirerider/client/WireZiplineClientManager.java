@@ -5,6 +5,7 @@ import com.white.wirerider.WireRiderTags;
 import com.white.wirerider.compat.IRidableWireSession;
 import com.white.wirerider.compat.cee.CEECompat;
 import com.white.wirerider.compat.powergrid.PowerGridCompat;
+import com.white.wirerider.content.WrenchLubricationHandler;
 import com.white.wirerider.content.qte.ElectricQTEController;
 import com.white.wirerider.network.WireRideActionPayload;
 import net.minecraft.client.Minecraft;
@@ -17,6 +18,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -43,10 +45,84 @@ public class WireZiplineClientManager {
     private static ElectricQTEController qteController = null;
     private static Vec3 currentNormal = Vec3.ZERO;
     private static float wrenchHeat = 0.0f;
+    private static int overheatBurnTicks = 0;
     private static int continuousRideTicks = 0;
+    private static boolean wasRidingBeforeDisconnect = false;
+    private static int reconnectMountTicks = 0;
+    private static Player lastPlayerInstance = null;
+    private static Vec3 savedResumePos = null;
+    private static boolean isLoggingOut = false;
+
+    public static void saveResumeOnLogout() {
+        isLoggingOut = true;
+        wasRidingBeforeDisconnect = true;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null) {
+            savedResumePos = mc.player.position();
+            writeResumeFile(savedResumePos);
+        }
+    }
+
+    public static void onLogin() {
+        isLoggingOut = false;
+    }
+
+    private static void writeResumeFile(Vec3 pos) {
+        try {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.gameDirectory != null && pos != null) {
+                java.nio.file.Path file = mc.gameDirectory.toPath().resolve(".wire_rider_resume");
+                String line = String.format(java.util.Locale.ROOT, "%.4f,%.4f,%.4f", pos.x, pos.y, pos.z);
+                java.nio.file.Files.writeString(file, line);
+            }
+        } catch (Throwable ignored) {}
+    }
+
+    private static void deleteResumeFile() {
+        try {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.gameDirectory != null) {
+                java.nio.file.Path file = mc.gameDirectory.toPath().resolve(".wire_rider_resume");
+                java.nio.file.Files.deleteIfExists(file);
+            }
+        } catch (Throwable ignored) {}
+    }
+
+    private static void checkResumeOnLogin(Minecraft mc) {
+        boolean shouldResume = wasRidingBeforeDisconnect;
+        try {
+            if (mc.gameDirectory != null) {
+                java.nio.file.Path file = mc.gameDirectory.toPath().resolve(".wire_rider_resume");
+                if (java.nio.file.Files.exists(file)) {
+                    String content = java.nio.file.Files.readString(file).trim();
+                    String[] parts = content.split(",");
+                    if (parts.length >= 3) {
+                        double x = Double.parseDouble(parts[0]);
+                        double y = Double.parseDouble(parts[1]);
+                        double z = Double.parseDouble(parts[2]);
+                        savedResumePos = new Vec3(x, y, z);
+                    }
+                    shouldResume = true;
+                    java.nio.file.Files.deleteIfExists(file);
+                }
+            }
+        } catch (Throwable ignored) {}
+
+        if (shouldResume && hasWrench(mc.player)) {
+            reconnectMountTicks = 160;
+        } else {
+            savedResumePos = null;
+            reconnectMountTicks = 0;
+        }
+        wasRidingBeforeDisconnect = false;
+    }
 
     public static float getWrenchHeat() {
         return wrenchHeat;
+    }
+
+    public static void addWrenchHeat(float amount) {
+        wrenchHeat = Math.min(1.0f, wrenchHeat + amount);
     }
 
     public static boolean isLastExitedWire(Object identity) {
@@ -88,6 +164,7 @@ public class WireZiplineClientManager {
     public static void handleQTEResult(int result) {
         if (result == 1) {
 
+        } else if (result == 2) {
         } else if (result < 0) {
             if (currentSession != null) {
                 currentSession.sendShockPacket();
@@ -105,6 +182,17 @@ public class WireZiplineClientManager {
             || BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath().contains("wrench");
     }
 
+    public static ItemStack getActiveWrench(Player player) {
+        if (player == null) return ItemStack.EMPTY;
+        if (isWrench(player.getMainHandItem())) return player.getMainHandItem();
+        if (isWrench(player.getOffhandItem())) return player.getOffhandItem();
+        return ItemStack.EMPTY;
+    }
+
+    public static boolean hasWrench(Player player) {
+        return !getActiveWrench(player).isEmpty();
+    }
+
     public static void embark(IRidableWireSession session) {
         if (session == null || !session.isValid()) return;
         if (isRiding()) return;
@@ -119,11 +207,16 @@ public class WireZiplineClientManager {
         currentSession = session;
         wirePoints = points;
         groundedTimer = 0;
+        overheatBurnTicks = 0;
         tickCounter = 0;
         currentNormal = Vec3.ZERO;
         lastExitedWire = null;
         lastWireCooldown = 0;
         laneSwitchCooldown = 0;
+        wasRidingBeforeDisconnect = true;
+        reconnectMountTicks = 0;
+        savedResumePos = null;
+        writeResumeFile(mc.player.position());
 
         isEnergized = false;
         currentVoltage = 0.0f;
@@ -145,6 +238,11 @@ public class WireZiplineClientManager {
             currentSession.sendShockPacket();
         }
 
+        overheatBurnTicks = 0;
+        wasRidingBeforeDisconnect = false;
+        savedResumePos = null;
+        deleteResumeFile();
+
         lastExitedWire = currentSession.getWireIdentity();
         lastWireCooldown = 12;
         remountCooldown = 6;
@@ -153,27 +251,49 @@ public class WireZiplineClientManager {
         Vec3 normal = currentNormal;
         double speedAlong = vel.dot(normal);
 
-        Vec3 forwardDir;
-        if (Math.abs(speedAlong) > 0.05) {
-            forwardDir = normal.scale(Math.signum(speedAlong));
+        Vec3 look = mc.player.getLookAngle();
+        Vec3 lookHoriz = new Vec3(look.x, 0.0, look.z);
+        if (lookHoriz.lengthSqr() > 1e-4) {
+            lookHoriz = lookHoriz.normalize();
         } else {
-            Vec3 look = mc.player.getLookAngle();
-            forwardDir = new Vec3(look.x, 0.0, look.z).normalize();
+            lookHoriz = new Vec3(0, 0, 1);
         }
 
-        double horizSpeed = Math.max(Math.abs(speedAlong) * 1.3, 0.45);
-        double jumpPower = 0.52;
+        Vec3 jumpDir;
+        if (Math.abs(speedAlong) > 0.05) {
+            Vec3 wireHoriz = new Vec3(normal.x, 0.0, normal.z);
+            if (wireHoriz.lengthSqr() > 1e-4) {
+                wireHoriz = wireHoriz.normalize().scale(Math.signum(speedAlong));
+                jumpDir = wireHoriz.scale(0.60).add(lookHoriz.scale(0.40)).normalize();
+            } else {
+                jumpDir = lookHoriz;
+            }
+        } else {
+            jumpDir = lookHoriz;
+        }
+
+        double horizSpeed = Math.max(Math.abs(speedAlong) * 1.45 + 0.35, 0.85);
+        double jumpPower = 0.65;
         if (mc.player.hasEffect(net.minecraft.world.effect.MobEffects.JUMP)) {
-            jumpPower += 0.1 * (mc.player.getEffect(net.minecraft.world.effect.MobEffects.JUMP).getAmplifier() + 1);
+            jumpPower += 0.12 * (mc.player.getEffect(net.minecraft.world.effect.MobEffects.JUMP).getAmplifier() + 1);
         }
 
-        Vec3 jumpVel = new Vec3(forwardDir.x * horizSpeed, jumpPower, forwardDir.z * horizSpeed);
+        Vec3 jumpVel = new Vec3(jumpDir.x * horizSpeed, jumpPower, jumpDir.z * horizSpeed);
         mc.player.setDeltaMovement(jumpVel);
         mc.player.fallDistance = 0.0F;
 
         PacketDistributor.sendToServer(WireRideActionPayload.stop());
-        mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.ARROW_SHOOT, 1.25F, 0.5F));
-        mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.WOOL_HIT, 0.9F, 0.4F));
+        mc.player.playSound(SoundEvents.WIND_CHARGE_BURST.value(), 0.9F, 1.2F);
+        mc.player.playSound(SoundEvents.PLAYER_ATTACK_SWEEP, 0.8F, 1.1F);
+
+        if (mc.level != null) {
+            for (int i = 0; i < 8; i++) {
+                mc.level.addParticle(ParticleTypes.CLOUD, mc.player.getX(), mc.player.getY() + 0.1, mc.player.getZ(),
+                    -jumpDir.x * 0.2 + (Math.random() - 0.5) * 0.15,
+                    0.05 + Math.random() * 0.08,
+                    -jumpDir.z * 0.2 + (Math.random() - 0.5) * 0.15);
+            }
+        }
 
         currentSession = null;
         wirePoints = null;
@@ -188,6 +308,12 @@ public class WireZiplineClientManager {
 
         if (qteController != null && qteController.isQTEActive()) {
             currentSession.sendShockPacket();
+        }
+
+        if (!isLoggingOut) {
+            wasRidingBeforeDisconnect = false;
+            savedResumePos = null;
+            deleteResumeFile();
         }
 
         if (mc.player != null) {
@@ -215,6 +341,7 @@ public class WireZiplineClientManager {
         wirePoints = null;
         qteController = null;
         groundedTimer = 0;
+        overheatBurnTicks = 0;
         currentNormal = Vec3.ZERO;
         laneSwitchCooldown = 0;
         unenergizedGraceTicks = 0;
@@ -223,6 +350,11 @@ public class WireZiplineClientManager {
     public static void tick() {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null) return;
+
+        if (mc.player != lastPlayerInstance) {
+            lastPlayerInstance = mc.player;
+            checkResumeOnLogin(mc);
+        }
 
         if (remountCooldown > 0) {
             remountCooldown--;
@@ -242,6 +374,44 @@ public class WireZiplineClientManager {
         } else {
             groundedTimer = 0;
 
+            if (reconnectMountTicks > 0) {
+                reconnectMountTicks--;
+                if (hasWrench(mc.player)) {
+                    if (savedResumePos != null) {
+                        mc.player.setPos(savedResumePos.x, savedResumePos.y, savedResumePos.z);
+                    }
+                    mc.player.setDeltaMovement(Vec3.ZERO);
+                    mc.player.fallDistance = 0.0F;
+
+                    float chainYOffset = 0.66F * mc.player.getScale();
+                    Vec3 searchPos = (savedResumePos != null ? savedResumePos : mc.player.position())
+                        .add(0.0, mc.player.getBoundingBox().getYsize() + chainYOffset, 0.0);
+                    double grabDistSq = 8.0 * 8.0;
+
+                    IRidableWireSession resumeSession = null;
+                    if (ModList.get().isLoaded("electroenergetics")) {
+                        resumeSession = CEECompat.findClosestWire(searchPos, grabDistSq, mc.level);
+                    }
+                    if (resumeSession == null && ModList.get().isLoaded("powergrid")) {
+                        resumeSession = PowerGridCompat.findClosestWire(searchPos, grabDistSq, mc.level);
+                    }
+
+                    if (resumeSession != null && resumeSession.isValid()) {
+                        embark(resumeSession);
+                        reconnectMountTicks = 0;
+                        savedResumePos = null;
+                        deleteResumeFile();
+                    } else if (reconnectMountTicks == 0) {
+                        savedResumePos = null;
+                        deleteResumeFile();
+                    }
+                } else {
+                    reconnectMountTicks = 0;
+                    savedResumePos = null;
+                    deleteResumeFile();
+                }
+            }
+
             if (wrenchHeat > 0.0f) {
                 boolean inWaterOrRain = mc.player.isInWaterOrRain() || mc.level.isRainingAt(mc.player.blockPosition());
                 if (inWaterOrRain) {
@@ -256,7 +426,7 @@ public class WireZiplineClientManager {
                 continuousRideTicks = Math.max(0, continuousRideTicks - 4);
             }
 
-            if (remountCooldown == 0 && mc.options.keyUse.isDown() && !mc.player.isShiftKeyDown() && isWrench(mc.player.getMainHandItem())) {
+            if (remountCooldown == 0 && mc.options.keyUse.isDown() && !mc.player.isShiftKeyDown() && hasWrench(mc.player)) {
                 holdUseSearch();
             }
         }
@@ -268,7 +438,7 @@ public class WireZiplineClientManager {
         LocalPlayer player = mc.player;
         if (player == null || mc.level == null) return;
 
-        if (!isWrench(player.getMainHandItem())) {
+        if (!hasWrench(player)) {
             disembark(false);
             return;
         }
@@ -352,8 +522,18 @@ public class WireZiplineClientManager {
             speedAlong += driveDir * power;
         }
 
+        boolean inWaterOrRain = player.isInWaterOrRain() || mc.level.isRainingAt(player.blockPosition());
+        ItemStack wrench = getActiveWrench(player);
+        boolean lubricated = WrenchLubricationHandler.isLubricated(wrench);
+
         speedAlong += (-normal.y * 0.038);
-        speedAlong *= 0.985;
+        double friction = 0.985;
+        if (inWaterOrRain) {
+            friction = 0.993;
+        } else if (lubricated) {
+            friction = 0.991;
+        }
+        speedAlong *= friction;
         speedAlong = Mth.clamp((float) speedAlong, -2.1F, 2.1F);
 
         Vec3 perpCorrection = perpDiff.scale(0.85);
@@ -369,29 +549,20 @@ public class WireZiplineClientManager {
             int qteRes = qteController.tick(true);
             if (qteRes != 0) {
                 handleQTEResult(qteRes);
-                if (qteRes < 0) return;
+                if (currentSession == null || wirePoints == null || wirePoints.size() < 2) return;
             }
         }
 
         if (++tickCounter % 10 == 0) {
             currentSession.sendHeartbeatPacket();
+            writeResumeFile(player.position());
         }
 
-        boolean inWaterOrRain = player.isInWaterOrRain() || mc.level.isRainingAt(player.blockPosition());
-        if (currentSpeed > 0.15) {
-            continuousRideTicks++;
-            if (continuousRideTicks > 900) {
-                wrenchHeat += 0.0028f;
-                if (wrenchHeat > 1.0f) {
-                    wrenchHeat = 1.0f;
-                }
-            }
-        } else {
-            continuousRideTicks = Math.max(0, continuousRideTicks - 4);
-            wrenchHeat = Math.max(0.0f, wrenchHeat - 0.0083f);
-        }
-
-        if (inWaterOrRain) {
+        if (lubricated) {
+            WrenchLubricationHandler.tickLubrication(wrench, inWaterOrRain);
+            continuousRideTicks = 0;
+            wrenchHeat = Math.max(0.0f, wrenchHeat - 0.025f);
+        } else if (inWaterOrRain) {
             continuousRideTicks = Math.max(0, continuousRideTicks - 8);
             if (wrenchHeat > 0.0f) {
                 if (wrenchHeat > 0.12f && tickCounter % 4 == 0) {
@@ -401,7 +572,22 @@ public class WireZiplineClientManager {
                 }
                 wrenchHeat = Math.max(0.0f, wrenchHeat - 0.030f);
             }
-        } else if (wrenchHeat >= 0.85f && wrenchHeat < 1.0f) {
+        } else if (currentSpeed > 0.15) {
+            continuousRideTicks++;
+            int heatThreshold = isEnergized ? 500 : 900;
+            if (continuousRideTicks > heatThreshold) {
+                float heatRate = isEnergized ? 0.0038f : 0.0028f;
+                wrenchHeat += heatRate;
+                if (wrenchHeat > 1.0f) {
+                    wrenchHeat = 1.0f;
+                }
+            }
+        } else {
+            continuousRideTicks = Math.max(0, continuousRideTicks - 4);
+            wrenchHeat = Math.max(0.0f, wrenchHeat - 0.0083f);
+        }
+
+        if (wrenchHeat >= 0.85f && wrenchHeat < 1.0f) {
             if (tickCounter % 12 == 0) {
                 mc.level.addParticle(ParticleTypes.SMOKE, target.x, target.y - 0.02, target.z, 0.0, 0.02, 0.0);
             }
@@ -411,17 +597,29 @@ public class WireZiplineClientManager {
         }
 
         if (wrenchHeat >= 1.0f) {
-            player.playSound(SoundEvents.FIRE_EXTINGUISH, 0.7f, 0.9f);
-            for (int i = 0; i < 4; i++) {
+            overheatBurnTicks++;
+            if (overheatBurnTicks >= 20 || overheatBurnTicks == 1) {
+                if (overheatBurnTicks >= 20) {
+                    overheatBurnTicks = 1;
+                }
+                PacketDistributor.sendToServer(
+                    new WireRideActionPayload(WireRideActionPayload.ACTION_OVERHEAT_BURN, (byte) 0, new net.minecraft.nbt.CompoundTag())
+                );
+                player.playSound(SoundEvents.PLAYER_HURT_ON_FIRE, 0.8f, 1.0f);
+                player.playSound(SoundEvents.FIRE_EXTINGUISH, 0.5f, 1.2f);
+                player.hurtTime = 10;
+            }
+            for (int i = 0; i < 2; i++) {
                 mc.level.addParticle(ParticleTypes.CAMPFIRE_COSY_SMOKE, target.x, target.y, target.z,
                     (Math.random() - 0.5) * 0.08, 0.06, (Math.random() - 0.5) * 0.08);
+                mc.level.addParticle(ParticleTypes.FLAME, target.x, target.y, target.z,
+                    (Math.random() - 0.5) * 0.04, 0.03, (Math.random() - 0.5) * 0.04);
             }
-            player.hurtTime = 10;
-            disembark(false);
-            return;
+        } else {
+            overheatBurnTicks = 0;
         }
 
-        if (isEnergized) {
+        if (isEnergized && wirePoints != null && wirePoints.size() >= 2 && currentSession != null) {
             double speed = delta.length();
             if (speed > 0.04) {
                 int count = Math.min(4, 1 + (int)(speed * 3.0));

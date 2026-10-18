@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    " A ",
+    "GNG",
+    " A "
+  ],
+  "key": {
+    "A": {
+      "item": "create:andesite_alloy"
+    },
+    "G": {
+      "tag": "c:glass_panes"
+    },
+    "N": {
+      "item": "create:copper_nugget"
+    }
+  },
+  "result": {
+    "id": "create_wire_rider:spark_arrestor",
+    "count": 1
+  }
+}

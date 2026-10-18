@@ -1,6 +1,8 @@
 {
-  "itemGroup.create_wire_rider": "Create: Wire Rider",
-  "message.create_wire_rider.grounded": "§a⚡ ЗАЗЕМЛЕНО! (+15% к скорости) ⚡",
-  "message.create_wire_rider.shocked": "§c⚡ УДАР ТОКОМ! Потеря скорости! ⚡",
-  "message.create_wire_rider.knocked_off": "§4⚡ ВАС ВЫБИЛО С ПРОВОДА РАЗРЯДОМ! ⚡"
+  "item.create_wire_rider.spark_arrestor": "Шунт",
+  "item.create_wire_rider.spark_arrestor.desc": "Поглощает высоковольтный удар при ошибке",
+  "tooltip.create_wire_rider.spark_arrestor": "⚡ Шунт: [%s] %s/%s",
+  "tooltip.create_wire_rider.spark_arrestor.remove": "  Чтобы снять используй ✂",
+  "tooltip.create_wire_rider.honey_lubricated": "§6✦ Смазан мёдом §7(%s:%s)",
+  "entity.create_wire_rider.zipline_toolbox": "Канатный ящик Create"
 }

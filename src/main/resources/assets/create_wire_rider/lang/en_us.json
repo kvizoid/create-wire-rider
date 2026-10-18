@@ -1,6 +1,8 @@
 {
-  "itemGroup.create_wire_rider": "Create: Wire Rider",
-  "message.create_wire_rider.grounded": "§a⚡ GROUNDED! (+15% Speed Burst) ⚡",
-  "message.create_wire_rider.shocked": "§c⚡ ELECTRIC SHOCK! Speed penalty! ⚡",
-  "message.create_wire_rider.knocked_off": "§4⚡ KNOCKED OFF WIRE BY VOLTAGE! ⚡"
+  "item.create_wire_rider.spark_arrestor": "Shunt",
+  "item.create_wire_rider.spark_arrestor.desc": "Absorbs high-voltage shock on error",
+  "tooltip.create_wire_rider.spark_arrestor": "⚡ Shunt: [%s] %s/%s",
+  "tooltip.create_wire_rider.spark_arrestor.remove": "  To unmount use ✂",
+  "tooltip.create_wire_rider.honey_lubricated": "§6✦ Honey-Lubricated §7(%s:%s)",
+  "entity.create_wire_rider.zipline_toolbox": "Zipline Toolbox"
 }

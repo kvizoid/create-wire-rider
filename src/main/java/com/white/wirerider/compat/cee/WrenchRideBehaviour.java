@@ -15,23 +15,31 @@ public class WrenchRideBehaviour extends WireInteractionBehaviour {
 
     @Override
     public boolean isActiveFor(ItemStack stack, Player player) {
-        if (stack.isEmpty()) return false;
-
         if (player != null && player.isShiftKeyDown()) return false;
         if (WireZiplineClientManager.isRiding()) return false;
 
-        return WireZiplineClientManager.isWrench(stack);
+        if (WireZiplineClientManager.isWrench(stack)) return true;
+        if (player != null && WireZiplineClientManager.isWrench(player.getOffhandItem())) return true;
+        return false;
     }
 
     @Override
     public boolean tryUseOnWire(Level level, Player player, InteractionHand hand) {
         if (WireZiplineClientManager.isRiding()) return false;
+        if (player.isShiftKeyDown()) return false;
+
         if (level.isClientSide()) {
             NodeConnectionPoint targetedPoint = WireInteractionHandler.targetedPoint;
-            if (targetedPoint == null || hand != InteractionHand.MAIN_HAND) {
-                return false;
+            if (targetedPoint == null) return false;
+
+            ItemStack stack = player.getItemInHand(hand);
+            if (!WireZiplineClientManager.isWrench(stack)) {
+                if (hand == InteractionHand.MAIN_HAND && WireZiplineClientManager.isWrench(player.getOffhandItem())) {
+                    stack = player.getOffhandItem();
+                } else {
+                    return false;
+                }
             }
-            if (player.isShiftKeyDown()) return false;
 
             CEEWireSession session = new CEEWireSession(targetedPoint.connection(), level, player.position());
             if (session.isValid()) {
@@ -65,4 +73,3 @@ public class WrenchRideBehaviour extends WireInteractionBehaviour {
         return 0x00E5FF;
     }
 }
-

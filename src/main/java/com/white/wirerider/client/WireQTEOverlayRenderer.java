@@ -13,11 +13,13 @@ public class WireQTEOverlayRenderer {
 
     public static void render(GuiGraphics guiGraphics, DeltaTracker deltaTracker) {
         if (!WireZiplineClientManager.isRiding()) return;
-        ElectricQTEController qte = WireZiplineClientManager.getQteController();
-        if (qte == null) return;
-
         Minecraft mc = Minecraft.getInstance();
         if (mc.options.hideGui) return;
+
+        renderHeatArc(guiGraphics);
+
+        ElectricQTEController qte = WireZiplineClientManager.getQteController();
+        if (qte == null) return;
 
         int screenWidth = guiGraphics.guiWidth();
         int screenHeight = guiGraphics.guiHeight();
@@ -144,5 +146,28 @@ public class WireQTEOverlayRenderer {
         g.fill(sx + 12, sy + 4, sx + 13, sy + 6, activeColor);
 
         g.fill(sx + 7, sy + 4, sx + 9, sy + 5, activeColor);
+    }
+
+    private static final int[][] ARC_OFFSETS = {
+        {-8, -2}, {-7, -4}, {-6, -5}, {-5, -6}, {-4, -7}, {-3, -7}, {-2, -8}, {-1, -8},
+        {0, -8},
+        {1, -8}, {2, -8}, {3, -7}, {4, -7}, {5, -6}, {6, -5}, {7, -4}, {8, -2}
+    };
+
+    private static void renderHeatArc(GuiGraphics g) {
+        float heat = WireZiplineClientManager.getWrenchHeat();
+        if (heat <= 0.005f) return;
+
+        int cx = (g.guiWidth() - 15) / 2 + 7;
+        int cy = (g.guiHeight() - 15) / 2 + 7;
+
+        int count = Math.min(ARC_OFFSETS.length, Math.round(heat * ARC_OFFSETS.length));
+        if (count <= 0) return;
+
+        for (int i = 0; i < count; i++) {
+            int px = cx + ARC_OFFSETS[i][0];
+            int py = cy + ARC_OFFSETS[i][1];
+            g.fill(px, py, px + 1, py + 1, 0xFFFFFFFF);
+        }
     }
 }

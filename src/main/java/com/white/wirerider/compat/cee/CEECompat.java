@@ -25,6 +25,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.IEventBus;
@@ -42,6 +43,7 @@ public class CEECompat {
 
     static {
         WIRE_INTERACTIONS.register("wrench_ride", WrenchRideBehaviour::new);
+        WIRE_INTERACTIONS.register("toolbox_ride", ToolboxRideBehaviour::new);
     }
 
     public static void init(IEventBus modEventBus) {
@@ -231,6 +233,59 @@ public class CEECompat {
             }
         }
         return best;
+    }
+
+    public static IRidableWireSession findClosestWire(Vec3 handsPos, double maxDistSq, Level level) {
+        if (level == null || handsPos == null) return null;
+        IRidableWireSession best = null;
+        double bestDistSq = maxDistSq;
+
+        for (Pair<InWorldNodeConnection, WireData> pair : WireRenderer.getAllConnections()) {
+            InWorldNodeConnection conn = pair.getFirst();
+            if (conn == null) continue;
+
+            List<Vec3> points = CEEWireSession.calculatePoints(conn, level);
+            if (points == null || points.size() < 2) continue;
+
+            var query = WireZiplineClientManager.getClosestPointOnWire(points, handsPos);
+            double distSq = query.position().distanceToSqr(handsPos);
+            if (distSq < bestDistSq) {
+                bestDistSq = distSq;
+                best = new CEEWireSession(conn, level, query.position());
+            }
+        }
+        return best;
+    }
+
+    public static void handleToolboxLaunch(ServerPlayer sp, CompoundTag tag) {
+        InWorldNodeConnection conn = connectionFromTag(tag);
+        if (conn == null) return;
+
+        ServerLevel level = sp.serverLevel();
+        Vec3 p1 = conn.node1().getPosition(level);
+        Vec3 p2 = conn.node2().getPosition(level);
+        if (p1 == null || p2 == null) return;
+
+        ItemStack stack = com.simibubi.create.AllTags.AllItemTags.TOOLBOXES.matches(sp.getMainHandItem())
+            ? sp.getMainHandItem()
+            : (com.simibubi.create.AllTags.AllItemTags.TOOLBOXES.matches(sp.getOffhandItem()) ? sp.getOffhandItem() : ItemStack.EMPTY);
+
+        if (stack.isEmpty()) return;
+
+        float sag = 0.5F;
+        List<Vec3> points = com.george_vi.electroenergetics.foundation.QuadraticWireHelper.cablePoints(p1, p2, sag, 1.0F);
+        if (points == null || points.size() < 2) return;
+
+        ItemStack toSpawn = stack.copyWithCount(1);
+        if (!sp.getAbilities().instabuild) {
+            stack.shrink(1);
+        }
+
+        Vec3 clickPos = sp.position().add(0, sp.getEyeHeight(), 0);
+        com.white.wirerider.content.toolbox.ZiplineToolboxEntity entity =
+            new com.white.wirerider.content.toolbox.ZiplineToolboxEntity(level, points, toSpawn, clickPos, sp.getLookAngle());
+        level.addFreshEntity(entity);
+        level.playSound(null, entity.getX(), entity.getY(), entity.getZ(), SoundEvents.CHAIN_PLACE, SoundSource.PLAYERS, 1.0F, 1.2F);
     }
 }
 

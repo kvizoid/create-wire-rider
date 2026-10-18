@@ -5,6 +5,7 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.Random;
 
@@ -97,6 +98,44 @@ public class ElectricQTEController {
         return 0;
     }
 
+    private boolean tryArrestorDischarge() {
+        if (player == null) return false;
+        ItemStack wrench = com.white.wirerider.client.WireZiplineClientManager.getActiveWrench(player);
+        boolean hasOnWrench = com.white.wirerider.content.item.SparkArrestorHandler.hasArrestor(wrench);
+        boolean hasOnOff = player.getOffhandItem().getItem() instanceof com.white.wirerider.content.item.SparkArrestorItem;
+        boolean hasOnMain = player.getMainHandItem().getItem() instanceof com.white.wirerider.content.item.SparkArrestorItem;
+
+        if (!hasOnWrench && !hasOnOff && !hasOnMain) {
+            return false;
+        }
+
+        net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+            new com.white.wirerider.network.WireRideActionPayload(
+                com.white.wirerider.network.WireRideActionPayload.ACTION_ARRESTOR_DISCHARGE,
+                (byte) 0,
+                new net.minecraft.nbt.CompoundTag()
+            )
+        );
+
+        com.white.wirerider.client.WireZiplineClientManager.addWrenchHeat(0.25f);
+
+        player.playSound(SoundEvents.FIRE_EXTINGUISH, 0.40F, 1.6F);
+        player.playSound(SoundEvents.LIGHTNING_BOLT_IMPACT, 0.30F, 1.9F);
+
+        for (int i = 0; i < 12; i++) {
+            player.level().addParticle(ParticleTypes.ELECTRIC_SPARK,
+                player.getX(), player.getY() + 1.2, player.getZ(),
+                (random.nextDouble() - 0.5) * 0.5, 0.2, (random.nextDouble() - 0.5) * 0.5);
+        }
+        for (int i = 0; i < 6; i++) {
+            player.level().addParticle(ParticleTypes.CAMPFIRE_COSY_SMOKE,
+                player.getX(), player.getY() + 1.2, player.getZ(),
+                (random.nextDouble() - 0.5) * 0.1, 0.08, (random.nextDouble() - 0.5) * 0.1);
+        }
+
+        return true;
+    }
+
     private void startQTE() {
         QTEKey[] all = QTEKey.values();
         this.activePrompt = all[random.nextInt(all.length)];
@@ -109,6 +148,10 @@ public class ElectricQTEController {
                 player.getX(), player.getY() + 1.2, player.getZ(),
                 (random.nextDouble() - 0.5) * 0.35, 0.15, (random.nextDouble() - 0.5) * 0.35);
         }
+    }
+
+    public int fail() {
+        return onFailedQTE();
     }
 
     public int handleInput(QTEKey pressed) {
@@ -143,6 +186,10 @@ public class ElectricQTEController {
         resetCooldown();
         combo = 0;
         comboAnimationTicks = 0;
+
+        if (tryArrestorDischarge()) {
+            return 2;
+        }
 
         player.playSound(SoundEvents.FLINTANDSTEEL_USE, 1.0f, 0.5f);
         return -2;
