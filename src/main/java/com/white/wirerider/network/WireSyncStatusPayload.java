@@ -13,8 +13,7 @@ public record WireSyncStatusPayload(
     boolean energized,
     float voltage,
     float current,
-    float temperature,
-    float dangerousDistance
+    float temperature
 ) implements CustomPacketPayload {
 
     public static final Type<WireSyncStatusPayload> TYPE =
@@ -25,7 +24,6 @@ public record WireSyncStatusPayload(
         ByteBufCodecs.FLOAT, WireSyncStatusPayload::voltage,
         ByteBufCodecs.FLOAT, WireSyncStatusPayload::current,
         ByteBufCodecs.FLOAT, WireSyncStatusPayload::temperature,
-        ByteBufCodecs.FLOAT, WireSyncStatusPayload::dangerousDistance,
         WireSyncStatusPayload::new
     );
 
@@ -35,15 +33,11 @@ public record WireSyncStatusPayload(
     }
 
     public static void handle(WireSyncStatusPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            WireZiplineClientManager.updateElectricalStatus(
-                payload.energized(),
-                payload.voltage(),
-                payload.current(),
-                payload.temperature(),
-                payload.dangerousDistance()
-            );
-        });
+        context.enqueueWork(() -> WireZiplineClientManager.updateElectricalStatus(
+            payload.energized(),
+            payload.voltage(),
+            payload.current(),
+            payload.temperature()
+        ));
     }
 }
-

@@ -63,7 +63,6 @@ neoForge {
 }
 
 dependencies {
-    compileOnly files('libs/powergrid-1.21.1-0.6.0.1.jar')
     compileOnly files('libs/electroenergetics-1.21.1-1.1.3.jar')
     compileOnly files('libs/create-1.21.1-6.0.10.jar')
     compileOnly files('libs/ponder-neoforge-1.0.82+mc1.21.1.jar')

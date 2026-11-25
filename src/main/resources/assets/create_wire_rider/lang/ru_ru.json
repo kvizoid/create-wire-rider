@@ -1,8 +1,5 @@
 {
-  "item.create_wire_rider.spark_arrestor": "Шунт",
-  "item.create_wire_rider.spark_arrestor.desc": "Поглощает высоковольтный удар при ошибке",
-  "tooltip.create_wire_rider.spark_arrestor": "⚡ Шунт: [%s] %s/%s",
-  "tooltip.create_wire_rider.spark_arrestor.remove": "  Чтобы снять используй ✂",
-  "tooltip.create_wire_rider.honey_lubricated": "§6✦ Смазан мёдом §7(%s:%s)",
-  "entity.create_wire_rider.zipline_toolbox": "Канатный ящик Create"
+  "hud.create_wire_rider.live_wire": "ПОД НАПРЯЖЕНИЕМ (%s)",
+  "hud.create_wire_rider.ground_arc": "ОПАСНОСТЬ ЗАЗЕМЛЕНИЯ!",
+  "hud.create_wire_rider.overheat": "ПЕРЕГРЕВ ПРОВОДА (%s°C)"
 }

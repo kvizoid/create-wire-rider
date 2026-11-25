@@ -1,13 +1,16 @@
 package com.white.wirerider.client;
 
-import com.white.wirerider.content.qte.ElectricQTEController;
 import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
+import net.neoforged.neoforge.client.event.RenderHandEvent;
+import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import net.neoforged.neoforge.client.event.ViewportEvent;
 import org.lwjgl.glfw.GLFW;
 
 @EventBusSubscriber(modid = "create_wire_rider", value = Dist.CLIENT)
@@ -19,20 +22,36 @@ public class WireRiderClientEvents {
     }
 
     @SubscribeEvent
-    public static void onRenderGui(RenderGuiEvent.Post event) {
-        WireQTEOverlayRenderer.render(event.getGuiGraphics(), event.getPartialTick());
+    public static void onRenderLevelStage(RenderLevelStageEvent event) {
+        WireTargetHighlightRenderer.render(event);
+        WireHudOverlayRenderer.updateWorldProjection(event);
     }
 
     @SubscribeEvent
-    public static void onLoggingOut(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
-        if (WireZiplineClientManager.isRiding()) {
-            WireZiplineClientManager.saveResumeOnLogout();
+    public static void onRenderGui(RenderGuiEvent.Post event) {
+        WireHudOverlayRenderer.render(event.getGuiGraphics(), event.getPartialTick());
+    }
+
+    @SubscribeEvent
+    public static void onRenderHand(RenderHandEvent event) {
+        WrenchSparkRenderer.renderHandSparks(event);
+    }
+
+    @SubscribeEvent
+    public static void onComputeCameraAngles(ViewportEvent.ComputeCameraAngles event) {
+        float roll = WireZiplineClientManager.getCameraRoll(event.getPartialTick());
+        if (roll != 0.0f) {
+            event.setRoll(event.getRoll() + roll);
+        }
+        float pitchOffset = WireZiplineClientManager.getCameraPitchOffset(event.getPartialTick());
+        if (pitchOffset != 0.0f) {
+            event.setPitch(event.getPitch() + pitchOffset);
         }
     }
 
     @SubscribeEvent
-    public static void onLoggingIn(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingIn event) {
-        WireZiplineClientManager.onLogin();
+    public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+        WireZiplineClientManager.resetOnLogout();
     }
 
     @SubscribeEvent
@@ -41,64 +60,16 @@ public class WireRiderClientEvents {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.screen != null) return;
 
-        if (event.getAction() == GLFW.GLFW_PRESS) {
-            ElectricQTEController qte = WireZiplineClientManager.getQteController();
-            boolean qteActive = (qte != null && qte.isQTEActive());
-
-            if (event.getKey() == mc.options.keyShift.getKey().getValue()) {
-                if (qteActive) {
-                    WireZiplineClientManager.handleQTEResult(qte.fail());
-                } else {
-                    WireZiplineClientManager.disembark(false);
-                }
-                return;
-            }
-
-            if (event.getKey() == mc.options.keyJump.getKey().getValue()) {
-                if (qteActive) {
-                    int res = qte.handleInput(ElectricQTEController.QTEKey.SPACE);
-                    WireZiplineClientManager.handleQTEResult(res);
-                } else {
-                    WireZiplineClientManager.jumpFromWire();
-                }
-                return;
-            }
-
-            if (event.getKey() == mc.options.keyLeft.getKey().getValue()) {
-                if (!qteActive) {
-                    WireZiplineClientManager.attemptLaneSwitch(-1.0f);
-                }
-                return;
-            } else if (event.getKey() == mc.options.keyRight.getKey().getValue()) {
-                if (!qteActive) {
-                    WireZiplineClientManager.attemptLaneSwitch(1.0f);
-                }
-                return;
-            }
-        }
-    }
-
-    @SubscribeEvent
-    public static void onMouseButton(InputEvent.MouseButton.Pre event) {
-        if (!WireZiplineClientManager.isRiding()) return;
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.screen != null) return;
         if (event.getAction() != GLFW.GLFW_PRESS) return;
 
-        ElectricQTEController qte = WireZiplineClientManager.getQteController();
-        if (qte != null && qte.isQTEActive()) {
-            ElectricQTEController.QTEKey key = null;
-            if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-                key = ElectricQTEController.QTEKey.LMB;
-            } else if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-                key = ElectricQTEController.QTEKey.RMB;
-            }
-
-            if (key != null) {
-                int res = qte.handleInput(key);
-                WireZiplineClientManager.handleQTEResult(res);
-                event.setCanceled(true);
-            }
+        if (event.getKey() == mc.options.keyShift.getKey().getValue()) {
+            WireZiplineClientManager.disembark(false);
+        } else if (event.getKey() == mc.options.keyJump.getKey().getValue()) {
+            WireZiplineClientManager.jumpFromWire();
+        } else if (event.getKey() == mc.options.keyLeft.getKey().getValue()) {
+            WireZiplineClientManager.attemptLaneSwitch(-1.0f);
+        } else if (event.getKey() == mc.options.keyRight.getKey().getValue()) {
+            WireZiplineClientManager.attemptLaneSwitch(1.0f);
         }
     }
 }

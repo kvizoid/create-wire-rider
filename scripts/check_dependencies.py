@@ -4,7 +4,6 @@ import json
 
 DEPENDENCIES = {
     "create-electro-energetics": "Create: Electro Energetics",
-    "power-grid": "Create: Power Grid",
     "create": "Create"
 }
 

@@ -6,7 +6,10 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 
 public class WireRiderTags {
-    public static final TagKey<Item> WRENCHES = TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("c", "tools/wrench"));
-    public static final TagKey<Item> ZIPLINE_TOOLS = TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("create_wire_rider", "zipline_tools"));
+    public static final TagKey<Item> WRENCHES =
+        TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("c", "tools/wrench"));
+    public static final TagKey<Item> WRENCHES_PLURAL =
+        TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("c", "tools/wrenches"));
+    public static final TagKey<Item> ZIPLINE_TOOLS =
+        TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath(WireRiderMod.MOD_ID, "zipline_tools"));
 }
-

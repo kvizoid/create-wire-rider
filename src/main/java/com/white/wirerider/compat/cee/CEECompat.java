@@ -1,19 +1,17 @@
 package com.white.wirerider.compat.cee;
 
 import com.george_vi.electroenergetics.CEEDamageTypes;
-import com.george_vi.electroenergetics.client.WireRenderer;
 import com.george_vi.electroenergetics.content.wire.interaction.WireInteractionBehaviour;
+import com.george_vi.electroenergetics.foundation.QuadraticWireHelper;
 import com.george_vi.electroenergetics.foundation.nodes.InWorldNode;
 import com.george_vi.electroenergetics.foundation.nodes.InWorldNodeConnection;
 import com.george_vi.electroenergetics.simulation.infrastructure.ConnectionEntry;
 import com.george_vi.electroenergetics.simulation.infrastructure.InfrastructureSavedData;
-import com.george_vi.electroenergetics.simulation.infrastructure.WireData;
+import com.white.wirerider.WireGeometry;
 import com.white.wirerider.WireRiderMod;
-import com.white.wirerider.client.WireZiplineClientManager;
-import com.white.wirerider.compat.IRidableWireSession;
+import com.white.wirerider.WireRiderUtils;
+import com.white.wirerider.compat.WireStatusSnapshot;
 import com.white.wirerider.network.WireRideActionPayload;
-import com.white.wirerider.network.WireSyncStatusPayload;
-import net.createmod.catnip.data.Pair;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
@@ -25,15 +23,16 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
 import java.util.List;
 
+/**
+ * Common and server-side compatibility for Create: Electro Energetics.
+ * Must not reference client-only CEE classes (e.g. WireRenderer).
+ */
 public class CEECompat {
     public static final ResourceKey<Registry<WireInteractionBehaviour>> WIRE_INTERACTION_REGISTRY_KEY =
         ResourceKey.createRegistryKey(ResourceLocation.fromNamespaceAndPath("electroenergetics", "wire_interaction_behaviour"));
@@ -43,7 +42,6 @@ public class CEECompat {
 
     static {
         WIRE_INTERACTIONS.register("wrench_ride", WrenchRideBehaviour::new);
-        WIRE_INTERACTIONS.register("toolbox_ride", ToolboxRideBehaviour::new);
     }
 
     public static void init(IEventBus modEventBus) {
@@ -58,7 +56,7 @@ public class CEECompat {
             tag.putLong("p2", conn.node2().sourcePos().asLong());
             tag.putInt("i2", conn.node2().id());
         }
-        return new WireRideActionPayload(action, IRidableWireSession.TYPE_CEE, tag);
+        return new WireRideActionPayload(action, tag);
     }
 
     public static InWorldNodeConnection connectionFromTag(CompoundTag tag) {
@@ -70,222 +68,88 @@ public class CEECompat {
         return new InWorldNodeConnection(new InWorldNode(id1, pos1), new InWorldNode(id2, pos2));
     }
 
-    public static void handleServerRideSync(ServerPlayer sp, CompoundTag tag) {
+    public static WireStatusSnapshot validateAndMeasure(ServerPlayer sp, CompoundTag tag, double maxDistSq) {
         InWorldNodeConnection conn = connectionFromTag(tag);
-        if (conn == null) return;
+        if (conn == null) return null;
 
         ServerLevel level = sp.serverLevel();
-        boolean energized = false;
-        float voltage = 0.0f;
-        float current = 0.0f;
-        float temperature = 20.0f;
-        float dangerousDistance = 0.5f;
-
         try {
             InfrastructureSavedData sd = InfrastructureSavedData.load(level);
-            if (sd != null && sd.wireSimulationState != null) {
-                ConnectionEntry entry = sd.wireSimulationState.getConnection(conn);
-                if (entry != null && entry.wireData != null && entry.wireData.wireType() != null) {
-                    var wireType = entry.wireData.wireType();
-                    temperature = entry.wireData.temperature;
-                    dangerousDistance = (float) Math.sqrt(Math.max(0.1, entry.dangerousDistanceSqr));
+            if (sd == null || sd.wireSimulationState == null) return null;
 
-                    if (!wireType.isDecorative()) {
-                        double v = 0.0;
-                        if (sd.ticker != null && sd.ticker.lastResults != null) {
-                            v = Math.abs(entry.getWireVoltageToGround(sd.ticker.lastResults, conn.node1(), conn.node2()));
-                            if (v <= 0.0) {
-                                try {
-                                    double v1 = Math.abs(sd.ticker.lastResults.getVoltageAt(conn.node1()));
-                                    double v2 = Math.abs(sd.ticker.lastResults.getVoltageAt(conn.node2()));
-                                    v = Math.max(v1, v2);
-                                } catch (Throwable ignored) {}
-                            }
-                            try {
-                                current = (float) Math.abs(sd.ticker.lastResults.getCurrentThrough(conn.node1(), conn.node2()));
-                            } catch (Throwable ignored) {}
-                        }
-                        voltage = (float) v;
+            ConnectionEntry entry = sd.wireSimulationState.getConnection(conn);
+            if (entry == null || entry.wireData == null || entry.wireData.wireType() == null) return null;
 
-                        boolean hasInsulation = wireType.insulated();
-                        boolean brokenInsulation = entry.isOvervolted || (hasInsulation && v > wireType.maxInsulationVoltage());
+            List<Vec3> points = (entry.points != null && entry.points.size() >= 2) ? entry.points : null;
+            if (points == null) {
+                Vec3 p1 = conn.node1().getPosition(level);
+                Vec3 p2 = conn.node2().getPosition(level);
+                if (p1 == null || p2 == null) return null;
+                float sag = entry.wireData.getSag(p1.distanceTo(p2));
+                points = QuadraticWireHelper.cablePoints(p1, p2, sag, 1.0F);
+            }
+            if (points == null || points.size() < 2) return null;
 
-                        if (v > 50.0 && (!hasInsulation || brokenInsulation)) {
-                            energized = true;
-                        }
-                    }
+            Vec3 playerAnchor = sp.position().add(0.0, sp.getBoundingBox().getYsize(), 0.0);
+            Vec3 closest = WireGeometry.getClosestPointOnWire(points, playerAnchor).position();
+            if (closest.distanceToSqr(playerAnchor) > maxDistSq) {
+                return null;
+            }
+
+            var wireType = entry.wireData.wireType();
+            float temperature = entry.wireData.temperature;
+            float voltage = 0.0f;
+            float current = 0.0f;
+            boolean energized = false;
+
+            if (!wireType.isDecorative() && sd.ticker != null && sd.ticker.lastResults != null) {
+                double v = Math.abs(entry.getWireVoltageToGround(sd.ticker.lastResults, conn.node1(), conn.node2()));
+                if (v <= 0.0) {
+                    try {
+                        double v1 = Math.abs(sd.ticker.lastResults.getVoltageAt(conn.node1()));
+                        double v2 = Math.abs(sd.ticker.lastResults.getVoltageAt(conn.node2()));
+                        double vDiff = Math.abs(sd.ticker.lastResults.getVoltageAt(conn.node1(), conn.node2()));
+                        v = Math.max(Math.max(v1, v2), vDiff);
+                    } catch (Throwable ignored) {}
+                }
+                try {
+                    current = (float) Math.abs(sd.ticker.lastResults.getCurrentThrough(conn.node1(), conn.node2()));
+                } catch (Throwable ignored) {}
+
+                voltage = (float) v;
+                boolean hasInsulation = wireType.insulated();
+                boolean brokenInsulation = entry.isOvervolted || (hasInsulation && v > wireType.maxInsulationVoltage());
+                if (v > WireRiderUtils.getLiveVoltageThreshold() && (!hasInsulation || brokenInsulation)) {
+                    energized = true;
                 }
             }
-        } catch (Throwable t) {
-            WireRiderMod.LOGGER.warn("Failed to check CEE wire circuit status", t);
-        }
 
-        PacketDistributor.sendToPlayer(sp, new WireSyncStatusPayload(
-            energized, voltage, current, temperature, dangerousDistance
-        ));
+            return new WireStatusSnapshot(energized, voltage, current, temperature);
+        } catch (Throwable t) {
+            WireRiderMod.LOGGER.warn("Failed to validate/measure CEE wire", t);
+            return null;
+        }
     }
 
-    public static void handleServerShock(ServerPlayer sp, CompoundTag tag) {
-        InWorldNodeConnection conn = connectionFromTag(tag);
+    public static void applyServerShock(ServerPlayer sp, CompoundTag tag) {
+        WireStatusSnapshot status = validateAndMeasure(sp, tag, 16.0 * 16.0);
+        if (status == null || !status.energized()) return;
+
+        float damage = WireRiderUtils.computeShockDamage(status.voltage());
+        if (damage <= 0.0f) return;
+
         ServerLevel level = sp.serverLevel();
-        double voltage = 0.0;
-
-        if (conn != null) {
-            try {
-                InfrastructureSavedData sd = InfrastructureSavedData.load(level);
-                if (sd != null && sd.wireSimulationState != null) {
-                    ConnectionEntry entry = sd.wireSimulationState.getConnection(conn);
-                    if (entry != null) {
-                        if (sd.ticker != null && sd.ticker.lastResults != null) {
-                            voltage = Math.abs(entry.getWireVoltageToGround(sd.ticker.lastResults, conn.node1(), conn.node2()));
-                        }
-                        if (voltage <= 0.0 && entry.wireData != null && entry.wireData.wireType() != null) {
-                            voltage = entry.wireData.wireType().maxInsulationVoltage();
-                        }
-                    }
-                }
-            } catch (Throwable t) {
-                WireRiderMod.LOGGER.warn("Failed to calculate CEE wire voltage for shock damage", t);
-            }
-        }
-
-        float damage = 4.0f;
-        if (voltage > 0.0) {
-            damage = (float) Math.max(4.0, voltage / 2500.0);
-        }
-
         DamageSource ds;
         try {
             var reg = level.registryAccess().registryOrThrow(Registries.DAMAGE_TYPE);
-            var key = voltage > 9900.0 ? CEEDamageTypes.HV_ELECTROCUTION : CEEDamageTypes.ELECTROCUTION;
+            var key = status.voltage() > 9900.0f ? CEEDamageTypes.HV_ELECTROCUTION : CEEDamageTypes.ELECTROCUTION;
             ds = new DamageSource(reg.getHolderOrThrow(key));
         } catch (Throwable t) {
             ds = sp.damageSources().lightningBolt();
         }
 
         sp.hurt(ds, damage);
-        sp.level().playSound(null, sp.getX(), sp.getY(), sp.getZ(),
+        level.playSound(null, sp.getX(), sp.getY(), sp.getZ(),
             SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 0.7f, 1.8f);
     }
-
-    public static IRidableWireSession searchHoldToGrab(Vec3 handsPos, double grabDistSq, Level level) {
-        return searchHoldToGrab(handsPos, grabDistSq, level, handsPos, Vec3.ZERO, null);
-    }
-
-    public static IRidableWireSession searchHoldToGrab(Vec3 handsPos, double grabDistSq, Level level, Vec3 camPos, Vec3 camLook, Object excludedWire) {
-        IRidableWireSession best = null;
-        double bestScore = Double.MAX_VALUE;
-
-        for (Pair<InWorldNodeConnection, WireData> pair : WireRenderer.getAllConnections()) {
-            InWorldNodeConnection conn = pair.getFirst();
-            if (conn == null) continue;
-            if (excludedWire != null && excludedWire.equals(conn)) continue;
-
-            List<Vec3> points = CEEWireSession.calculatePoints(conn, level);
-            if (points == null || points.size() < 2) continue;
-
-            double rayDist = WireZiplineClientManager.getRayDistanceToWire(points, camPos, camLook);
-            if (rayDist > 0.65) continue;
-
-            var query = WireZiplineClientManager.getClosestPointOnWire(points, handsPos);
-            double distSq = query.position().distanceToSqr(handsPos);
-            if (distSq <= grabDistSq) {
-                double score = rayDist * 3.0 + Math.sqrt(distSq);
-                if (score < bestScore) {
-                    bestScore = score;
-                    best = new CEEWireSession(conn, level, handsPos);
-                }
-            }
-        }
-        return best;
-    }
-
-    public static IRidableWireSession findParallelWire(Vec3 handsPos, Vec3 desiredLateralDir, Vec3 currentTangent, Object currentWire, Level level) {
-        if (level == null || handsPos == null || desiredLateralDir == null) return null;
-        IRidableWireSession best = null;
-        double bestScore = -1000.0;
-
-        for (Pair<InWorldNodeConnection, WireData> pair : WireRenderer.getAllConnections()) {
-            InWorldNodeConnection conn = pair.getFirst();
-            if (conn == null) continue;
-            if (currentWire != null && currentWire.equals(conn)) continue;
-
-            List<Vec3> points = CEEWireSession.calculatePoints(conn, level);
-            if (points == null || points.size() < 2) continue;
-
-            var query = WireZiplineClientManager.getClosestPointOnWire(points, handsPos);
-            Vec3 pt = query.position();
-            Vec3 toPt = pt.subtract(handsPos);
-            double distSq = toPt.lengthSqr();
-            if (distSq > 3.6 * 3.6 || distSq < 0.25 * 0.25) continue;
-            if (Math.abs(toPt.y) > 2.0) continue;
-
-            double lateralProj = toPt.dot(desiredLateralDir);
-            if (lateralProj < 0.25) continue;
-
-            double alignDot = Math.abs(query.normal().dot(currentTangent));
-            if (alignDot < 0.35) continue;
-
-            double score = (lateralProj * 2.0) - (toPt.length() * 1.5) + (alignDot * 2.0);
-            if (score > bestScore) {
-                bestScore = score;
-                best = new CEEWireSession(conn, level, pt);
-            }
-        }
-        return best;
-    }
-
-    public static IRidableWireSession findClosestWire(Vec3 handsPos, double maxDistSq, Level level) {
-        if (level == null || handsPos == null) return null;
-        IRidableWireSession best = null;
-        double bestDistSq = maxDistSq;
-
-        for (Pair<InWorldNodeConnection, WireData> pair : WireRenderer.getAllConnections()) {
-            InWorldNodeConnection conn = pair.getFirst();
-            if (conn == null) continue;
-
-            List<Vec3> points = CEEWireSession.calculatePoints(conn, level);
-            if (points == null || points.size() < 2) continue;
-
-            var query = WireZiplineClientManager.getClosestPointOnWire(points, handsPos);
-            double distSq = query.position().distanceToSqr(handsPos);
-            if (distSq < bestDistSq) {
-                bestDistSq = distSq;
-                best = new CEEWireSession(conn, level, query.position());
-            }
-        }
-        return best;
-    }
-
-    public static void handleToolboxLaunch(ServerPlayer sp, CompoundTag tag) {
-        InWorldNodeConnection conn = connectionFromTag(tag);
-        if (conn == null) return;
-
-        ServerLevel level = sp.serverLevel();
-        Vec3 p1 = conn.node1().getPosition(level);
-        Vec3 p2 = conn.node2().getPosition(level);
-        if (p1 == null || p2 == null) return;
-
-        ItemStack stack = com.simibubi.create.AllTags.AllItemTags.TOOLBOXES.matches(sp.getMainHandItem())
-            ? sp.getMainHandItem()
-            : (com.simibubi.create.AllTags.AllItemTags.TOOLBOXES.matches(sp.getOffhandItem()) ? sp.getOffhandItem() : ItemStack.EMPTY);
-
-        if (stack.isEmpty()) return;
-
-        float sag = 0.5F;
-        List<Vec3> points = com.george_vi.electroenergetics.foundation.QuadraticWireHelper.cablePoints(p1, p2, sag, 1.0F);
-        if (points == null || points.size() < 2) return;
-
-        ItemStack toSpawn = stack.copyWithCount(1);
-        if (!sp.getAbilities().instabuild) {
-            stack.shrink(1);
-        }
-
-        Vec3 clickPos = sp.position().add(0, sp.getEyeHeight(), 0);
-        com.white.wirerider.content.toolbox.ZiplineToolboxEntity entity =
-            new com.white.wirerider.content.toolbox.ZiplineToolboxEntity(level, points, toSpawn, clickPos, sp.getLookAngle());
-        level.addFreshEntity(entity);
-        level.playSound(null, entity.getX(), entity.getY(), entity.getZ(), SoundEvents.CHAIN_PLACE, SoundSource.PLAYERS, 1.0F, 1.2F);
-    }
 }
-

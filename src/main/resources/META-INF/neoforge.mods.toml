@@ -5,17 +5,16 @@ issueTrackerURL="https://github.com/kvizoid/create-wire-rider/issues"
 
 [[mods]]
 modId="create_wire_rider"
-version="1.0.2"
+version="2.0.0"
 displayName="Create: Wire Rider"
 updateJSONURL="https://raw.githubusercontent.com/kvizoid/create-wire-rider/main/updates.json"
 displayURL="https://github.com/kvizoid/create-wire-rider"
 logoFile="logo.png"
-credits="George_VI (Electro Energetics), Patryk3211 (Power Grid), Simibubi (Create)"
-authors="white, drnight"
+credits="George_VI (Electro Energetics), Simibubi (Create)"
+authors="kvizoid"
 description='''
-Zipline on power lines using any Create wrench.
-Works with both Create: Electro Energetics and Create: Power Grid cables.
-Bare wires carrying live voltage require quick reactions (Space / LMB / RMB) to avoid taking electric damage, while A/D switch between parallel lines.
+Ride Create: Electro Energetics cables like a zipline using any Create wrench.
+Supports slope momentum, pole-to-pole transitions, A/D lane switching, mid-air grabs, and voltage-based electrical hazards.
 '''
 
 [[dependencies.create_wire_rider]]
@@ -41,15 +40,8 @@ Bare wires carrying live voltage require quick reactions (Space / LMB / RMB) to 
 
 [[dependencies.create_wire_rider]]
     modId="electroenergetics"
-    type="optional"
+    type="required"
     versionRange="[1.1.0,)"
-    ordering="AFTER"
-    side="BOTH"
-
-[[dependencies.create_wire_rider]]
-    modId="powergrid"
-    type="optional"
-    versionRange="[0.6.0,)"
     ordering="AFTER"
     side="BOTH"
 

@@ -1,8 +1,5 @@
 {
-  "item.create_wire_rider.spark_arrestor": "Shunt",
-  "item.create_wire_rider.spark_arrestor.desc": "Absorbs high-voltage shock on error",
-  "tooltip.create_wire_rider.spark_arrestor": "⚡ Shunt: [%s] %s/%s",
-  "tooltip.create_wire_rider.spark_arrestor.remove": "  To unmount use ✂",
-  "tooltip.create_wire_rider.honey_lubricated": "§6✦ Honey-Lubricated §7(%s:%s)",
-  "entity.create_wire_rider.zipline_toolbox": "Zipline Toolbox"
+  "hud.create_wire_rider.live_wire": "LIVE WIRE (%s)",
+  "hud.create_wire_rider.ground_arc": "GROUND ARC DANGER!",
+  "hud.create_wire_rider.overheat": "OVERHEATED WIRE (%s°C)"
 }
