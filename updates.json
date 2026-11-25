@@ -1,13 +1,14 @@
 {
   "homepage": "https://modrinth.com/mod/create-wire-rider",
   "promoted": {
-    "1.21.1-latest": "2.0.0",
-    "1.21.1-recommended": "2.0.0"
+    "1.21.1-latest": "2.0.1",
+    "1.21.1-recommended": "2.0.1"
   },
   "1.21.1": {
     "1.0.0": "Initial release with Create: Electro Energetics support",
     "1.0.1": "Added remount cooldown and input fixes",
     "1.0.2": "Added wrench heat mechanic and environmental cooling",
-    "2.0.0": "Reworked for Create: Electro Energetics: removed QTE minigame, wrench overheat, honey lubrication, shunt item, and toolbox entity; added server-side validation, reconnect persistence, brass aim highlight, camera tilt, slide sound, and physical ground-arc, stall, and overheat hazards."
+    "2.0.0": "Reworked for Create: Electro Energetics: removed QTE minigame, wrench overheat, honey lubrication, shunt item, and toolbox entity; added server-side validation, reconnect persistence, brass aim highlight, camera tilt, slide sound, and physical hazards.",
+    "2.0.1": "Added Engineer's Goggles 3D-tethered wire telemetry (voltage, current, temperature, insulation), replaced the HV idle shock timer with a capacitive arc snap on mount, and fixed goggles icon layering."
   }
 }

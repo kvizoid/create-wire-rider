@@ -103,10 +103,9 @@ public class WireHudOverlayRenderer {
 
         boolean energized = WireZiplineClientManager.isEnergized();
         boolean groundWarn = WireZiplineClientManager.hasGroundArcWarning();
-        float stall = WireZiplineClientManager.getStallCharge();
         boolean hot = WireZiplineClientManager.getWireTemp() >= WireRiderUtils.getWireBurnTemp();
 
-        if (!energized && !hot && !groundWarn && stall <= 0.01f) {
+        if (!energized && !hot && !groundWarn) {
             positionInitialized = false;
             return;
         }
@@ -144,7 +143,7 @@ public class WireHudOverlayRenderer {
         float partialTick = deltaTracker.getGameTimeDeltaPartialTick(true);
         float time = mc.player.tickCount + partialTick;
 
-        boolean critical = groundWarn || hot || stall > 0.25f;
+        boolean critical = groundWarn || hot;
         // High-contrast smooth pulse so danger flashing is immediately readable
         float pulseSpeed = critical ? 0.85f : 0.30f;
         float pulse = 0.5f + 0.5f * Mth.sin(time * pulseSpeed);
@@ -197,15 +196,6 @@ public class WireHudOverlayRenderer {
                 };
                 guiGraphics.fill(col, row, col + 1, row + 1, color);
             }
-        }
-
-        // Compact stall-buildup bar tucked right under the brass badge
-        if (stall > 0.03f) {
-            int barW = 11;
-            int fillW = Math.max(1, Math.round(barW * Mth.clamp(stall, 0.0f, 1.0f)));
-            int barCol = lerpColor(0xFFFFB830, 0xFFFF2E1F, stall);
-            guiGraphics.fill(0, 14, 13, 17, 0xDD181310);
-            guiGraphics.fill(1, 15, 1 + fillW, 16, barCol);
         }
 
         guiGraphics.pose().popPose();

@@ -36,7 +36,8 @@ public class WireZiplineClientManager {
     private static float currentAmps = 0.0f;
     private static float wireTemp = 20.0f;
     private static boolean groundArcWarning = false;
-    private static float stallCharge = 0.0f;
+    private static boolean mountSnapTriggered = false;
+    private static int mountSnapTicks = 0;
 
     private static int groundedTimer = 0;
     private static int tickCounter = 0;
@@ -84,8 +85,8 @@ public class WireZiplineClientManager {
         return groundArcWarning;
     }
 
-    public static float getStallCharge() {
-        return stallCharge;
+    public static float getMountSnapBoost() {
+        return mountSnapTicks > 0 ? (mountSnapTicks / 8.0f) : 0.0f;
     }
 
     public static double getCurrentSpeed() {
@@ -125,6 +126,16 @@ public class WireZiplineClientManager {
         currentVoltage = voltage;
         currentAmps = current;
         wireTemp = temperature;
+
+        if (energized && !mountSnapTriggered && voltage >= 1500.0f) {
+            mountSnapTriggered = true;
+            mountSnapTicks = 8;
+            Minecraft mc = Minecraft.getInstance();
+            float electricVol = WireRiderConfig.CLIENT.electricSoundVolume.get().floatValue();
+            if (mc.player != null && electricVol > 0.01f) {
+                mc.player.playSound(SoundEvents.FLINTANDSTEEL_USE, 0.35f * electricVol, 1.55f);
+            }
+        }
     }
 
     public static void scheduleReconnectResume(net.minecraft.nbt.CompoundTag wireData, double x, double y, double z) {
@@ -188,7 +199,8 @@ public class WireZiplineClientManager {
         laneSwitchRollImpulse = 0.0f;
         jumpPitchImpulse = 2.5f;
         groundArcWarning = false;
-        stallCharge = 0.0f;
+        mountSnapTriggered = false;
+        mountSnapTicks = 0;
 
         isEnergized = false;
         currentVoltage = 0.0f;
@@ -304,7 +316,8 @@ public class WireZiplineClientManager {
         thermalBurnTicks = 0;
         currentSpeed = 0.0;
         groundArcWarning = false;
-        stallCharge = 0.0f;
+        mountSnapTriggered = false;
+        mountSnapTicks = 0;
         isEnergized = false;
         currentVoltage = 0.0f;
         currentAmps = 0.0f;
@@ -326,6 +339,7 @@ public class WireZiplineClientManager {
 
         if (remountCooldown > 0) remountCooldown--;
         if (laneSwitchCooldown > 0) laneSwitchCooldown--;
+        if (mountSnapTicks > 0) mountSnapTicks--;
         if (lastWireCooldown > 0) {
             lastWireCooldown--;
             if (lastWireCooldown == 0) lastExitedWire = null;
@@ -545,7 +559,6 @@ public class WireZiplineClientManager {
 
         if (!isEnergized) {
             groundArcWarning = false;
-            stallCharge = 0.0f;
             return;
         }
 
@@ -553,8 +566,8 @@ public class WireZiplineClientManager {
         // (1st-person jaw sparks are rendered directly in viewmodel space by WrenchSparkRenderer)
         if (particlesEnabled && !mc.options.getCameraType().isFirstPerson()) {
             double speed = delta.length();
-            if (speed > 0.04 || tickCounter % 3 == 0) {
-                int count = speed > 0.04 ? Math.min(3, 1 + (int) (speed * 2.0)) : 1;
+            if (speed > 0.04 || tickCounter % 3 == 0 || mountSnapTicks > 0) {
+                int count = mountSnapTicks > 0 ? 4 : (speed > 0.04 ? Math.min(3, 1 + (int) (speed * 2.0)) : 1);
                 Vec3 sparkDir = speed > 0.04 ? delta.normalize().scale(-0.10) : Vec3.ZERO;
                 for (int i = 0; i < count; i++) {
                     mc.level.addParticle(ParticleTypes.ELECTRIC_SPARK, target.x, target.y - 0.03, target.z,
@@ -583,39 +596,7 @@ public class WireZiplineClientManager {
 
         if (!hazardsEnabled) {
             groundArcWarning = false;
-            stallCharge = 0.0f;
             return;
-        }
-
-        // Stall arc buildup: cannot idle indefinitely on a live high-voltage bare wire
-        if (WireRiderConfig.COMMON.enableStallArcHazard.get()
-            && currentVoltage >= WireRiderConfig.COMMON.stallMinVoltage.get()) {
-            if (currentSpeed < 0.08) {
-                float seconds = WireRiderConfig.COMMON.stallBuildupSeconds.get().floatValue();
-                float step = 1.0f / Math.max(20.0f, seconds * 20.0f);
-                if (inWaterOrRain) step *= 1.4f;
-                stallCharge = Math.min(1.0f, stallCharge + step);
-
-                if (stallCharge > 0.45f && electricVol > 0.01f && tickCounter % 8 == 0) {
-                    player.playSound(SoundEvents.FLINTANDSTEEL_USE, 0.16f * electricVol, 1.15f + stallCharge * 0.35f);
-                }
-                if (stallCharge >= 1.0f) {
-                    currentSession.sendShockPacket();
-                    if (particlesEnabled) {
-                        for (int i = 0; i < 12; i++) {
-                            mc.level.addParticle(ParticleTypes.ELECTRIC_SPARK,
-                                player.getX(), player.getY() + 1.0, player.getZ(),
-                                (Math.random() - 0.5) * 0.4, 0.15, (Math.random() - 0.5) * 0.4);
-                        }
-                    }
-                    disembark(false);
-                    return;
-                }
-            } else {
-                stallCharge = Math.max(0.0f, stallCharge - 0.08f);
-            }
-        } else {
-            stallCharge = 0.0f;
         }
 
         // Ground / water short-circuit arc hazard

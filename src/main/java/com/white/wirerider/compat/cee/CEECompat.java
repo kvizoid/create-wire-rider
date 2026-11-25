@@ -44,11 +44,20 @@ public class CEECompat {
         WIRE_INTERACTIONS.register("wrench_ride", WrenchRideBehaviour::new);
     }
 
+    public record InspectSnapshot(
+        boolean energized,
+        boolean insulated,
+        boolean overvolted,
+        float voltage,
+        float current,
+        float temperature
+    ) {}
+
     public static void init(IEventBus modEventBus) {
         WIRE_INTERACTIONS.register(modEventBus);
     }
 
-    public static WireRideActionPayload createActionPayload(int action, InWorldNodeConnection conn) {
+    public static CompoundTag tagFromConnection(InWorldNodeConnection conn) {
         CompoundTag tag = new CompoundTag();
         if (conn != null) {
             tag.putLong("p1", conn.node1().sourcePos().asLong());
@@ -56,7 +65,11 @@ public class CEECompat {
             tag.putLong("p2", conn.node2().sourcePos().asLong());
             tag.putInt("i2", conn.node2().id());
         }
-        return new WireRideActionPayload(action, tag);
+        return tag;
+    }
+
+    public static WireRideActionPayload createActionPayload(int action, InWorldNodeConnection conn) {
+        return new WireRideActionPayload(action, tagFromConnection(conn));
     }
 
     public static InWorldNodeConnection connectionFromTag(CompoundTag tag) {
@@ -69,6 +82,12 @@ public class CEECompat {
     }
 
     public static WireStatusSnapshot validateAndMeasure(ServerPlayer sp, CompoundTag tag, double maxDistSq) {
+        InspectSnapshot full = inspectWire(sp, tag, maxDistSq);
+        if (full == null) return null;
+        return new WireStatusSnapshot(full.energized(), full.voltage(), full.current(), full.temperature());
+    }
+
+    public static InspectSnapshot inspectWire(ServerPlayer sp, CompoundTag tag, double maxDistSq) {
         InWorldNodeConnection conn = connectionFromTag(tag);
         if (conn == null) return null;
 
@@ -90,7 +109,7 @@ public class CEECompat {
             }
             if (points == null || points.size() < 2) return null;
 
-            Vec3 playerAnchor = sp.position().add(0.0, sp.getBoundingBox().getYsize(), 0.0);
+            Vec3 playerAnchor = sp.getEyePosition();
             Vec3 closest = WireGeometry.getClosestPointOnWire(points, playerAnchor).position();
             if (closest.distanceToSqr(playerAnchor) > maxDistSq) {
                 return null;
@@ -101,6 +120,8 @@ public class CEECompat {
             float voltage = 0.0f;
             float current = 0.0f;
             boolean energized = false;
+            boolean hasInsulation = wireType.insulated();
+            boolean brokenInsulation = entry.isOvervolted;
 
             if (!wireType.isDecorative() && sd.ticker != null && sd.ticker.lastResults != null) {
                 double v = Math.abs(entry.getWireVoltageToGround(sd.ticker.lastResults, conn.node1(), conn.node2()));
@@ -117,16 +138,15 @@ public class CEECompat {
                 } catch (Throwable ignored) {}
 
                 voltage = (float) v;
-                boolean hasInsulation = wireType.insulated();
-                boolean brokenInsulation = entry.isOvervolted || (hasInsulation && v > wireType.maxInsulationVoltage());
+                brokenInsulation = entry.isOvervolted || (hasInsulation && v > wireType.maxInsulationVoltage());
                 if (v > WireRiderUtils.getLiveVoltageThreshold() && (!hasInsulation || brokenInsulation)) {
                     energized = true;
                 }
             }
 
-            return new WireStatusSnapshot(energized, voltage, current, temperature);
+            return new InspectSnapshot(energized, hasInsulation, brokenInsulation, voltage, current, temperature);
         } catch (Throwable t) {
-            WireRiderMod.LOGGER.warn("Failed to validate/measure CEE wire", t);
+            WireRiderMod.LOGGER.warn("Failed to inspect CEE wire", t);
             return null;
         }
     }

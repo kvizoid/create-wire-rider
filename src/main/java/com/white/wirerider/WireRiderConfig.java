@@ -30,9 +30,6 @@ public final class WireRiderConfig {
         public final ModConfigSpec.DoubleValue groundShockDistance;
         public final ModConfigSpec.DoubleValue wireBurnTemperature;
         public final ModConfigSpec.DoubleValue wireCriticalTemperature;
-        public final ModConfigSpec.BooleanValue enableStallArcHazard;
-        public final ModConfigSpec.DoubleValue stallMinVoltage;
-        public final ModConfigSpec.DoubleValue stallBuildupSeconds;
 
         Common(ModConfigSpec.Builder builder) {
             builder.push("physics");
@@ -63,15 +60,6 @@ public final class WireRiderConfig {
             wireCriticalTemperature = builder
                 .comment("Wire temperature (°C) at which the player is knocked off due to extreme heat.")
                 .defineInRange("wireCriticalTemperature", 110.0, 50.0, 500.0);
-            enableStallArcHazard = builder
-                .comment("Shock and knock off players who stall/stop moving on live high-voltage bare wires.")
-                .define("enableStallArcHazard", true);
-            stallMinVoltage = builder
-                .comment("Minimum voltage (V) on a live bare wire where stalling triggers arc buildup.")
-                .defineInRange("stallMinVoltage", 1500.0, 50.0, 50000.0);
-            stallBuildupSeconds = builder
-                .comment("Seconds before stalling on a live high-voltage wire triggers an electric shock (faster in rain).")
-                .defineInRange("stallBuildupSeconds", 10.0, 1.0, 60.0);
             builder.pop();
         }
     }

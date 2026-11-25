@@ -1,5 +1,13 @@
 {
   "hud.create_wire_rider.live_wire": "ПОД НАПРЯЖЕНИЕМ (%s)",
   "hud.create_wire_rider.ground_arc": "ОПАСНОСТЬ ЗАЗЕМЛЕНИЯ!",
-  "hud.create_wire_rider.overheat": "ПЕРЕГРЕВ ПРОВОДА (%s°C)"
+  "hud.create_wire_rider.overheat": "ПЕРЕГРЕВ ПРОВОДА (%s°C)",
+  "goggles.create_wire_rider.header": "Параметры провода:",
+  "goggles.create_wire_rider.voltage": "Напряжение:",
+  "goggles.create_wire_rider.current": "Ток:",
+  "goggles.create_wire_rider.temperature": "Температура:",
+  "goggles.create_wire_rider.insulation": "Изоляция:",
+  "goggles.create_wire_rider.insulation.safe": "Изолирован",
+  "goggles.create_wire_rider.insulation.overvolted": "Пробита!",
+  "goggles.create_wire_rider.insulation.bare": "Голый"
 }

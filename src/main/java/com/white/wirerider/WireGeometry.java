@@ -17,6 +17,58 @@ public final class WireGeometry {
 
     public record ParallelMatch(Vec3 closestPoint, double score) {}
 
+    public record RayHit(double rayDistance, double alongRay, Vec3 wirePoint) {}
+
+    public static RayHit findRayHitOnWire(List<Vec3> points, Vec3 rayStart, Vec3 rayDir, double maxRange) {
+        if (points == null || points.size() < 2 || rayStart == null || rayDir == null) return null;
+        Vec3 u = rayDir.normalize();
+        RayHit best = null;
+
+        for (int i = 0; i < points.size() - 1; i++) {
+            Vec3 segA = points.get(i);
+            Vec3 segB = points.get(i + 1);
+            Vec3 segDiff = segB.subtract(segA);
+            double segLen = segDiff.length();
+            if (segLen < 1.0E-6) {
+                Vec3 w = segA.subtract(rayStart);
+                double sc = Mth.clamp(w.dot(u), 0.0, maxRange);
+                double dist = rayStart.add(u.scale(sc)).distanceTo(segA);
+                if (best == null || dist < best.rayDistance()) {
+                    best = new RayHit(dist, sc, segA);
+                }
+                continue;
+            }
+
+            Vec3 v = segDiff.scale(1.0 / segLen);
+            Vec3 w = rayStart.subtract(segA);
+            double b = u.dot(v);
+            double d = u.dot(w);
+            double e = v.dot(w);
+            double denom = 1.0 - b * b;
+
+            double sc, tc;
+            if (denom < 1.0E-5) {
+                sc = Math.max(0.0, -d);
+                tc = 0.0;
+            } else {
+                sc = (b * e - d) / denom;
+                tc = (e - b * d) / denom;
+            }
+
+            sc = Math.max(0.0, sc);
+            if (sc > maxRange) continue;
+
+            tc = Mth.clamp(tc, 0.0, segLen);
+            Vec3 pRay = rayStart.add(u.scale(sc));
+            Vec3 pSeg = segA.add(v.scale(tc));
+            double dist = pRay.distanceTo(pSeg);
+            if (best == null || dist < best.rayDistance()) {
+                best = new RayHit(dist, sc, pSeg);
+            }
+        }
+        return best;
+    }
+
     public static ClosestQuery getClosestPointOnWire(List<Vec3> points, Vec3 pos) {
         double minDistanceSquared = Double.MAX_VALUE;
         Vec3 minPoint = points.get(0);

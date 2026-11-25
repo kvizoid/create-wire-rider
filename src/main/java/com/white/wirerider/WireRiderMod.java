@@ -1,6 +1,8 @@
 package com.white.wirerider;
 
 import com.white.wirerider.compat.cee.CEECompat;
+import com.white.wirerider.network.WireInspectRequestPayload;
+import com.white.wirerider.network.WireInspectStatusPayload;
 import com.white.wirerider.network.WireResumeRidePayload;
 import com.white.wirerider.network.WireRideActionPayload;
 import com.white.wirerider.network.WireSyncStatusPayload;
@@ -43,10 +45,22 @@ public class WireRiderMod {
             WireRideActionPayload::handle
         );
 
+        registrar.playToServer(
+            WireInspectRequestPayload.TYPE,
+            WireInspectRequestPayload.STREAM_CODEC,
+            WireInspectRequestPayload::handle
+        );
+
         registrar.playToClient(
             WireSyncStatusPayload.TYPE,
             WireSyncStatusPayload.STREAM_CODEC,
             WireSyncStatusPayload::handle
+        );
+
+        registrar.playToClient(
+            WireInspectStatusPayload.TYPE,
+            WireInspectStatusPayload.STREAM_CODEC,
+            WireInspectStatusPayload::handle
         );
 
         registrar.playToClient(

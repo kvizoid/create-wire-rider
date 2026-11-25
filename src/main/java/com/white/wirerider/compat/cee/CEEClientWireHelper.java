@@ -28,6 +28,30 @@ public final class CEEClientWireHelper {
 
     public record HighlightTarget(List<Vec3> points, Vec3 grabPoint) {}
 
+    public record LookedAtWire(InWorldNodeConnection connection, Vec3 hitPoint) {}
+
+    public static LookedAtWire findLookedAtWire(Player player, Level level, double maxRange) {
+        if (player == null || level == null) return null;
+        Vec3 camPos = player.getEyePosition();
+        Vec3 camLook = player.getLookAngle();
+
+        LookedAtWire best = null;
+        double bestRayDist = 0.28;
+
+        for (Pair<InWorldNodeConnection, WireData> pair : WireRenderer.getAllConnections()) {
+            InWorldNodeConnection conn = pair.getFirst();
+            if (conn == null) continue;
+
+            List<Vec3> points = calculatePoints(conn, level);
+            WireGeometry.RayHit hit = WireGeometry.findRayHitOnWire(points, camPos, camLook, maxRange);
+            if (hit != null && hit.rayDistance() < bestRayDist) {
+                bestRayDist = hit.rayDistance();
+                best = new LookedAtWire(conn, hit.wirePoint());
+            }
+        }
+        return best;
+    }
+
     public static boolean isRiding() {
         return WireZiplineClientManager.isRiding();
     }

@@ -19,17 +19,20 @@ public class WireRiderClientEvents {
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
         WireZiplineClientManager.tick();
+        WireGogglesOverlayRenderer.tick();
     }
 
     @SubscribeEvent
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
         WireTargetHighlightRenderer.render(event);
         WireHudOverlayRenderer.updateWorldProjection(event);
+        WireGogglesOverlayRenderer.updateWorldProjection(event);
     }
 
     @SubscribeEvent
     public static void onRenderGui(RenderGuiEvent.Post event) {
         WireHudOverlayRenderer.render(event.getGuiGraphics(), event.getPartialTick());
+        WireGogglesOverlayRenderer.render(event.getGuiGraphics(), event.getPartialTick());
     }
 
     @SubscribeEvent
@@ -52,6 +55,7 @@ public class WireRiderClientEvents {
     @SubscribeEvent
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         WireZiplineClientManager.resetOnLogout();
+        WireGogglesOverlayRenderer.reset();
     }
 
     @SubscribeEvent

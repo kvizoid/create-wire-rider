@@ -1,5 +1,13 @@
 {
   "hud.create_wire_rider.live_wire": "LIVE WIRE (%s)",
   "hud.create_wire_rider.ground_arc": "GROUND ARC DANGER!",
-  "hud.create_wire_rider.overheat": "OVERHEATED WIRE (%s°C)"
+  "hud.create_wire_rider.overheat": "OVERHEATED WIRE (%s°C)",
+  "goggles.create_wire_rider.header": "Wire Telemetry:",
+  "goggles.create_wire_rider.voltage": "Voltage:",
+  "goggles.create_wire_rider.current": "Current:",
+  "goggles.create_wire_rider.temperature": "Temp:",
+  "goggles.create_wire_rider.insulation": "Sheath:",
+  "goggles.create_wire_rider.insulation.safe": "Insulated",
+  "goggles.create_wire_rider.insulation.overvolted": "Overvolted!",
+  "goggles.create_wire_rider.insulation.bare": "Bare"
 }

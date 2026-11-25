@@ -92,8 +92,8 @@ public final class WrenchSparkRenderer {
         RANDOM.setSeed(seed);
 
         float speedRatio = (float) Mth.clamp(WireZiplineClientManager.getCurrentSpeed() / 1.4, 0.25, 1.0);
-        float stallRatio = WireZiplineClientManager.getStallCharge();
-        int arcCount = energized ? (2 + Math.round(speedRatio * 2.0f + stallRatio * 3.0f)) : 2;
+        float snapBoost = WireZiplineClientManager.getMountSnapBoost();
+        int arcCount = energized ? (2 + Math.round(speedRatio * 2.0f + snapBoost * 4.0f)) : 2;
 
         MultiBufferSource buffer = event.getMultiBufferSource();
         VertexConsumer vc = buffer.getBuffer(RenderType.lightning());
@@ -113,11 +113,11 @@ public final class WrenchSparkRenderer {
             float mz = (z0 + z1) * 0.5f + (RANDOM.nextFloat() - 0.5f) * 0.06f;
 
             if (energized) {
-                int r = (stallRatio > 0.35f) ? 255 : 140;
-                int g = (stallRatio > 0.35f) ? 140 : 235;
-                int b = (stallRatio > 0.35f) ? 90 : 255;
-                drawBeamQuad(vc, mat, x0, y0, z0, mx, my, mz, 0.008f, r, g, b, 210);
-                drawBeamQuad(vc, mat, mx, my, mz, x1, y1, z1, 0.008f, 255, 255, 255, 230);
+                int r = (snapBoost > 0.2f) ? 210 : 140;
+                int g = (snapBoost > 0.2f) ? 245 : 235;
+                int b = 255;
+                drawBeamQuad(vc, mat, x0, y0, z0, mx, my, mz, 0.008f + snapBoost * 0.004f, r, g, b, 210);
+                drawBeamQuad(vc, mat, mx, my, mz, x1, y1, z1, 0.008f + snapBoost * 0.004f, 255, 255, 255, 230);
             } else {
                 drawBeamQuad(vc, mat, x0, y0, z0, mx, my, mz, 0.010f, 255, 110, 30, 190);
             }
