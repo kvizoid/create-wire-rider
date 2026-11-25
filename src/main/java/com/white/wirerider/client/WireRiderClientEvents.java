@@ -25,6 +25,7 @@ public class WireRiderClientEvents {
     @SubscribeEvent
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
         WireTargetHighlightRenderer.render(event);
+        WireArcRenderer.render(event);
         WireHudOverlayRenderer.updateWorldProjection(event);
         WireGogglesOverlayRenderer.updateWorldProjection(event);
     }

@@ -36,6 +36,12 @@ public class WireZiplineClientManager {
     private static float currentAmps = 0.0f;
     private static float wireTemp = 20.0f;
     private static boolean groundArcWarning = false;
+    private static Vec3 activeGroundArcEnd = null;
+    private static boolean activeGroundArcWater = false;
+    private static Vec3 activePolePos = null;
+    private static Vec3 shockFlashEnd = null;
+    private static boolean shockFlashWater = false;
+    private static int shockFlashTicks = 0;
     private static boolean mountSnapTriggered = false;
     private static int mountSnapTicks = 0;
 
@@ -93,6 +99,29 @@ public class WireZiplineClientManager {
         return currentSpeed;
     }
 
+    public static Vec3 getCurrentNormal() {
+        return currentNormal;
+    }
+
+    public static Vec3 getGroundArcEnd() {
+        if (activeGroundArcEnd != null) return activeGroundArcEnd;
+        return shockFlashTicks > 0 ? shockFlashEnd : null;
+    }
+
+    public static float getGroundArcFade() {
+        if (activeGroundArcEnd != null) return 1.0f;
+        return shockFlashTicks > 0 ? (shockFlashTicks / 8.0f) : 0.0f;
+    }
+
+    public static boolean isGroundArcWater() {
+        if (activeGroundArcEnd != null) return activeGroundArcWater;
+        return shockFlashTicks > 0 && shockFlashWater;
+    }
+
+    public static Vec3 getNearbyPolePos() {
+        return activePolePos;
+    }
+
     public static Vec3 getInterpolatedWireAnchor(float partialTick) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return Vec3.ZERO;
@@ -148,6 +177,9 @@ public class WireZiplineClientManager {
     public static void resetOnLogout() {
         stopSlideSound();
         clearSessionFields();
+        shockFlashTicks = 0;
+        shockFlashEnd = null;
+        shockFlashWater = false;
         pendingResumeTicks = 0;
         pendingResumeData = null;
         pendingResumePos = null;
@@ -199,6 +231,12 @@ public class WireZiplineClientManager {
         laneSwitchRollImpulse = 0.0f;
         jumpPitchImpulse = 2.5f;
         groundArcWarning = false;
+        activeGroundArcEnd = null;
+        activeGroundArcWater = false;
+        activePolePos = null;
+        shockFlashTicks = 0;
+        shockFlashEnd = null;
+        shockFlashWater = false;
         mountSnapTriggered = false;
         mountSnapTicks = 0;
 
@@ -316,6 +354,9 @@ public class WireZiplineClientManager {
         thermalBurnTicks = 0;
         currentSpeed = 0.0;
         groundArcWarning = false;
+        activeGroundArcEnd = null;
+        activeGroundArcWater = false;
+        activePolePos = null;
         mountSnapTriggered = false;
         mountSnapTicks = 0;
         isEnergized = false;
@@ -340,6 +381,7 @@ public class WireZiplineClientManager {
         if (remountCooldown > 0) remountCooldown--;
         if (laneSwitchCooldown > 0) laneSwitchCooldown--;
         if (mountSnapTicks > 0) mountSnapTicks--;
+        if (shockFlashTicks > 0) shockFlashTicks--;
         if (lastWireCooldown > 0) {
             lastWireCooldown--;
             if (lastWireCooldown == 0) lastExitedWire = null;
@@ -559,43 +601,25 @@ public class WireZiplineClientManager {
 
         if (!isEnergized) {
             groundArcWarning = false;
+            activeGroundArcEnd = null;
+            activeGroundArcWater = false;
+            activePolePos = null;
             return;
         }
 
-        // World-space sparks at the wire contact point for 3rd-person / multiplayer trail
-        // (1st-person jaw sparks are rendered directly in viewmodel space by WrenchSparkRenderer)
-        if (particlesEnabled && !mc.options.getCameraType().isFirstPerson()) {
-            double speed = delta.length();
-            if (speed > 0.04 || tickCounter % 3 == 0 || mountSnapTicks > 0) {
-                int count = mountSnapTicks > 0 ? 4 : (speed > 0.04 ? Math.min(3, 1 + (int) (speed * 2.0)) : 1);
-                Vec3 sparkDir = speed > 0.04 ? delta.normalize().scale(-0.10) : Vec3.ZERO;
-                for (int i = 0; i < count; i++) {
-                    mc.level.addParticle(ParticleTypes.ELECTRIC_SPARK, target.x, target.y - 0.03, target.z,
-                        sparkDir.x + (Math.random() - 0.5) * 0.10,
-                        sparkDir.y + Math.random() * 0.06,
-                        sparkDir.z + (Math.random() - 0.5) * 0.10);
-                }
-            }
-        }
-
-        // Pole / insulator arc sparks
-        if (particlesEnabled) {
-            double distToNode1 = target.distanceToSqr(wirePoints.get(0));
-            double distToNode2 = target.distanceToSqr(wirePoints.get(wirePoints.size() - 1));
-            if (distToNode1 < 4.0 || distToNode2 < 4.0) {
-                Vec3 polePos = (distToNode1 <= distToNode2) ? wirePoints.get(0) : wirePoints.get(wirePoints.size() - 1);
-                for (double t = 0.0; t <= 1.0; t += 0.25) {
-                    double px = Mth.lerp(t, target.x, polePos.x) + (Math.random() - 0.5) * 0.15;
-                    double py = Mth.lerp(t, target.y, polePos.y) + (Math.random() - 0.5) * 0.15;
-                    double pz = Mth.lerp(t, target.z, polePos.z) + (Math.random() - 0.5) * 0.15;
-                    mc.level.addParticle(ParticleTypes.ELECTRIC_SPARK, px, py, pz,
-                        (Math.random() - 0.5) * 0.10, -0.02, (Math.random() - 0.5) * 0.10);
-                }
-            }
+        // Pole / insulator arc anchor for WireArcRenderer
+        double distToNode1 = target.distanceToSqr(wirePoints.get(0));
+        double distToNode2 = target.distanceToSqr(wirePoints.get(wirePoints.size() - 1));
+        if (distToNode1 < 4.0 || distToNode2 < 4.0) {
+            activePolePos = (distToNode1 <= distToNode2) ? wirePoints.get(0) : wirePoints.get(wirePoints.size() - 1);
+        } else {
+            activePolePos = null;
         }
 
         if (!hazardsEnabled) {
             groundArcWarning = false;
+            activeGroundArcEnd = null;
+            activeGroundArcWater = false;
             return;
         }
 
@@ -607,40 +631,32 @@ public class WireZiplineClientManager {
 
         if (player.isInWater() || (ground != null && ground.distance < shockDist)) {
             groundArcWarning = true;
+            activeGroundArcEnd = null;
+            activeGroundArcWater = false;
+            shockFlashEnd = ground != null ? ground.hitPos : player.position();
+            shockFlashWater = player.isInWater() || (ground != null && ground.isWater);
+            shockFlashTicks = 8;
             currentSession.sendShockPacket();
-            if (particlesEnabled) {
-                for (int i = 0; i < 14; i++) {
-                    mc.level.addParticle(ParticleTypes.ELECTRIC_SPARK,
-                        player.getX(), player.getY() + 0.9, player.getZ(),
-                        (Math.random() - 0.5) * 0.45, 0.15, (Math.random() - 0.5) * 0.45);
-                }
-            }
             disembark(false);
             return;
         }
 
         if (ground != null && ground.distance < warnDist) {
             groundArcWarning = true;
-            if (particlesEnabled) {
-                Vec3 start = player.position().add(0, 0.2, 0);
+            activeGroundArcEnd = ground.hitPos;
+            activeGroundArcWater = ground.isWater;
+            if (particlesEnabled && ground.isWater) {
                 Vec3 end = ground.hitPos;
-                for (double t = 0.0; t <= 1.0; t += 0.2) {
-                    double px = Mth.lerp(t, start.x, end.x) + (Math.random() - 0.5) * 0.15;
-                    double py = Mth.lerp(t, start.y, end.y);
-                    double pz = Mth.lerp(t, start.z, end.z) + (Math.random() - 0.5) * 0.15;
-                    mc.level.addParticle(ParticleTypes.ELECTRIC_SPARK, px, py, pz,
-                        (Math.random() - 0.5) * 0.08, -0.05, (Math.random() - 0.5) * 0.08);
-                }
-                if (ground.isWater) {
-                    mc.level.addParticle(ParticleTypes.SPLASH, end.x, end.y + 0.05, end.z,
-                        (Math.random() - 0.5) * 0.2, 0.15, (Math.random() - 0.5) * 0.2);
-                }
+                mc.level.addParticle(ParticleTypes.SPLASH, end.x, end.y + 0.05, end.z,
+                    (Math.random() - 0.5) * 0.2, 0.15, (Math.random() - 0.5) * 0.2);
             }
             if (electricVol > 0.01f && tickCounter % 9 == 0) {
                 player.playSound(SoundEvents.FLINTANDSTEEL_USE, 0.22f * electricVol, 1.35f);
             }
         } else {
             groundArcWarning = false;
+            activeGroundArcEnd = null;
+            activeGroundArcWater = false;
         }
     }
 

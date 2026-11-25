@@ -121,7 +121,7 @@ public class CEECompat {
             float current = 0.0f;
             boolean energized = false;
             boolean hasInsulation = wireType.insulated();
-            boolean brokenInsulation = entry.isOvervolted;
+            boolean brokenInsulation = hasInsulation && entry.isOvervolted;
 
             if (!wireType.isDecorative() && sd.ticker != null && sd.ticker.lastResults != null) {
                 double v = Math.abs(entry.getWireVoltageToGround(sd.ticker.lastResults, conn.node1(), conn.node2()));
@@ -138,7 +138,7 @@ public class CEECompat {
                 } catch (Throwable ignored) {}
 
                 voltage = (float) v;
-                brokenInsulation = entry.isOvervolted || (hasInsulation && v > wireType.maxInsulationVoltage());
+                brokenInsulation = hasInsulation && (entry.isOvervolted || v > wireType.maxInsulationVoltage());
                 if (v > WireRiderUtils.getLiveVoltageThreshold() && (!hasInsulation || brokenInsulation)) {
                     energized = true;
                 }

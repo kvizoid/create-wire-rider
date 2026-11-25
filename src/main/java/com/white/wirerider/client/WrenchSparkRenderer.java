@@ -88,7 +88,7 @@ public final class WrenchSparkRenderer {
 
         // Model space is centered at (0,0,0) with extent [-0.5 .. +0.5].
         // Create wrench jaws sit at: upper jaw y≈+0.40, lower jaw y≈+0.28, x≈+0.12..+0.19, z≈0.
-        long seed = (player.tickCount / 2L) * 31L + (leftHand ? 17L : 7L);
+        long seed = (System.nanoTime() / 38_000_000L) * 31L + (leftHand ? 17L : 7L);
         RANDOM.setSeed(seed);
 
         float speedRatio = (float) Mth.clamp(WireZiplineClientManager.getCurrentSpeed() / 1.4, 0.25, 1.0);
